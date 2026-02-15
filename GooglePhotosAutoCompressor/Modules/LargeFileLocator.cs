@@ -65,6 +65,12 @@ namespace GooglePhotosAutoCompressor.Modules
             }
 
             long size = ParseSizeToBytes(texts[sizeIndex]);
+
+            if (size <= 0)
+            {
+                return null;
+            }
+
             texts[sizeIndex] = string.Empty;
 
             DateOnly date = default;
@@ -77,13 +83,14 @@ namespace GooglePhotosAutoCompressor.Modules
             texts[dateIndex] = string.Empty;
 
             TimeSpan duration = default;
+            MediaType mediaType = MediaType.Video;
             int durationIndex = Array.FindIndex(texts, t => TimeSpan.TryParseExact(t, Const.TIME_FORMATS, CultureInfo.InvariantCulture, out duration));
             if (durationIndex < 0)
             {
-                return null;
+                mediaType = MediaType.Image;
             }
 
-            return new() { MediaKey = mediaKey, Date = date, Duration = duration, Size = size };
+            return new (mediaType, mediaKey, date, duration, size);
         }
 
         private static long ParseSizeToBytes(string input)

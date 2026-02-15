@@ -2,16 +2,27 @@
 {
     internal class FileItem : IEquatable<FileItem>
     {
-        public string MediaKey { get; init; }
-        public DateOnly Date { get; init; }
-        public TimeSpan Duration { get; init; }
-        public long Size { get; init; }
+
+        public MediaType MediaType { get; }
+        public string MediaKey { get; }
+        public DateOnly Date { get; }
+        public TimeSpan Duration { get; }
+        public long Size { get; }
 
         public string DownloadPath { get; set; }
         public string CompressPath { get; set; }
         public bool OriginalDeleted { get; set; }
         public bool CompressUploaded { get; set; }
         public bool DateSet { get; set; }
+
+        public FileItem(MediaType mediaType, string mediaKey, DateOnly date, TimeSpan duraion, long size)
+        {
+            MediaType = mediaType;
+            MediaKey = mediaKey;
+            Date = date;
+            Duration = duraion;
+            Size = size;
+        }
 
         public bool Equals(FileItem? other)
         {
@@ -42,5 +53,11 @@
         {
             return (a == b) == false;
         }
+    }
+
+    internal enum MediaType
+    {
+        Video,
+        Image,
     }
 }

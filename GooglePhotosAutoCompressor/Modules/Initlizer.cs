@@ -28,7 +28,7 @@ namespace GooglePhotosAutoCompressor.Modules
 
         public static async Task Login(IPage page)
         {
-            Console.WriteLine("\n===\nLoginAndOpenLargeFilesPage\n===\n");
+            Console.WriteLine("\n===\nLogin\n===\n");
 
             await page.GotoAsync($"https://photos.google.com/?hl={Const.LOCALE}");
 

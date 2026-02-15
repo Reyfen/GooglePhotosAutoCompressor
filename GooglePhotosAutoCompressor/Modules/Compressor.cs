@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Text;
 
 namespace GooglePhotosAutoCompressor.Modules
 {
@@ -9,6 +10,7 @@ namespace GooglePhotosAutoCompressor.Modules
         public static async Task CompressFiles(FileItemsData filesData)
         {
             string directory = Path.Combine(Const.DOWNLOADS_PATH, "GooglePhotosCompressCache");
+            StringBuilder compressLog = new();
 
             Console.WriteLine("\n===\nCompressFiles\n===\n");
 
@@ -17,15 +19,19 @@ namespace GooglePhotosAutoCompressor.Modules
                 Directory.CreateDirectory(directory);
             }
 
+            int counter = -1;
             foreach (FileItem file in filesData.Items) 
             {
+                counter++;
+
                 if (string.IsNullOrEmpty(file.DownloadPath) || file.CompressUploaded)
                 {
                     continue;
                 }
 
-                if (HasVideoExtension(file.DownloadPath) == false)
+                if (HasVideoExtension(file.DownloadPath) == false || file.MediaType != MediaType.Video)
                 {
+                    LogResult($"failed compressing non-video file of {file.DownloadPath}");
                     continue;
                 }
 
@@ -44,7 +50,7 @@ namespace GooglePhotosAutoCompressor.Modules
                     file.CompressPath = path;
                     filesData.Save();
                     long size = new FileInfo(path).Length;
-                    Console.WriteLine($"Compressor: alredy compressed {file.CompressPath} \t\t {size / file.Duration.TotalSeconds / 1024 / 1024:F2} MB/s");
+                    LogResult($"alredy compressed {file.CompressPath} \t\t {size / file.Duration.TotalSeconds / 1024 / 1024:F2} MB/s");
                     continue;
                 }
 
@@ -55,12 +61,21 @@ namespace GooglePhotosAutoCompressor.Modules
                     file.CompressPath = path;
                     filesData.Save();
                     long size = new FileInfo(path).Length;
-                    Console.WriteLine($"Compressor: alredy compressed {file.CompressPath} \t\t {size / file.Duration.TotalSeconds / 1024 / 1024:F2} MB/s");
+                    LogResult($"alredy compressed {file.CompressPath} \t\t {size / file.Duration.TotalSeconds / 1024 / 1024:F2} MB/s");
                 }
                 else
                 {
-                    Console.WriteLine($"Compressor: failed compressing of {file.DownloadPath}");
+                    LogResult($"failed compressing of {file.DownloadPath}");
                 }
+            }
+
+            Console.WriteLine($"\nCompressor: Full compress log:\n{compressLog}");
+
+            void LogResult(string logMessage)
+            {
+                logMessage = $"[{counter}/{filesData.Items.Count}] {logMessage}";
+                Console.WriteLine("Compressor: " + logMessage);
+                compressLog.AppendLine(logMessage);
             }
         }
 

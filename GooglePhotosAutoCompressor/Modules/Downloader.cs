@@ -6,7 +6,7 @@ namespace GooglePhotosAutoCompressor.Modules
     {
         public static async Task<FileItemsData> DownloadUncommresedFiles(IPage page)
         {
-            const int TOTAL_FILES_TO_PROCESS_IN_ONE_BATCH = 10;
+            const int TOTAL_FILES_TO_PROCESS_IN_ONE_BATCH = 50;
 
             Console.WriteLine("\n===\nDownloadUncommresedFiles\n===\n");
 
@@ -19,7 +19,6 @@ namespace GooglePhotosAutoCompressor.Modules
             List<Task> downloadTasks = new();
             using CancellationTokenSource cts = new();
             int filesToFinishProcessing = itemsData.Items.Count(i => IsCompressionReasonable(i) && (IsDownloadNeeded(i) || i.DateSet == false));
-            var x = itemsData.Items.Where(i => IsCompressionReasonable(i) && (IsDownloadNeeded(i) || i.DateSet == false)).ToArray();
 
             if (filesToFinishProcessing >= TOTAL_FILES_TO_PROCESS_IN_ONE_BATCH)
             {
@@ -100,6 +99,11 @@ namespace GooglePhotosAutoCompressor.Modules
         private static bool IsCompressionReasonable(FileItem item)
         {
             const double MIN_SIZE_PER_SEC_TO_COMPRESS = 0.8 * 1024 * 1024;
+
+            if (item.MediaType == MediaType.Image)
+            {
+                return true;
+            }
 
             double sizePerSec = item.Size / item.Duration.TotalSeconds;
 
