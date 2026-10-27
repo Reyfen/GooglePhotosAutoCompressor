@@ -72,11 +72,21 @@ namespace GooglePhotosAutoCompressor.Tests
         }
 
         [Fact]
+        public void Git_lfs_pointer_is_not_treated_as_ffmpeg()
+        {
+            string pointer = Path.Combine(_dir, "ffmpeg.exe");
+            File.WriteAllText(pointer, "version https://git-lfs.github.com/spec/v1\noid sha256:abc\nsize 122888704\n");
+
+            Assert.False(Ffmpeg.IsRealBinary(pointer));
+            Assert.False(Ffmpeg.IsRealBinary(Path.Combine(_dir, "missing")));
+        }
+
+        [Fact]
         public void Extra_dir_is_searched()
         {
             string installDir = Path.Combine(_dir, "tools");
             Directory.CreateDirectory(installDir);
-            File.WriteAllText(Path.Combine(installDir, Ffmpeg.ExeName), "x");
+            File.WriteAllBytes(Path.Combine(installDir, Ffmpeg.ExeName), new byte[2 * 1024 * 1024]);
 
             // The bundled copy (Windows test runs) still wins; otherwise the extra dir is used.
             string? found = Ffmpeg.FindExecutable(installDir);

@@ -22,7 +22,7 @@ namespace GooglePhotosAutoCompressor
             foreach (string dir in extraDirs.Prepend(Path.Combine(AppContext.BaseDirectory, "tools")))
             {
                 string candidate = Path.Combine(dir, ExeName);
-                if (File.Exists(candidate))
+                if (IsRealBinary(candidate))
                 {
                     return candidate;
                 }
@@ -44,6 +44,14 @@ namespace GooglePhotosAutoCompressor
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// A clone without Git LFS has a ~130 byte text pointer instead of the real ffmpeg.exe.
+        /// </summary>
+        internal static bool IsRealBinary(string path)
+        {
+            return File.Exists(path) && new FileInfo(path).Length > 1024 * 1024;
         }
 
         /// <summary>Runs ffmpeg. Returns exit code and everything it wrote to stderr.</summary>
