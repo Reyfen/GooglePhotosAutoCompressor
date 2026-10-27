@@ -20,7 +20,7 @@ Robustness pass in progress. Each item below is its own commit.
 | 11 | Downloader: one failure does not stop the run, zip guard | done |
 | 12 | Skip our own compressed uploads (no double compression) | done (same commit as 11) |
 | 13 | Linux support | done (Linux test run: see below) |
-| 14 | Prompted ffmpeg download | todo |
+| 14 | Prompted ffmpeg download | done |
 | 15 | CI + README | todo |
 
 ## Known facts from the owner's real state file (2026-10-27)

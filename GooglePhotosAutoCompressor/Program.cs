@@ -7,10 +7,9 @@ namespace GooglePhotosAutoCompressor
     {
         private static async Task Main(string[] args)
         {
-            string? ffmpegPath = Ffmpeg.FindExecutable();
+            string? ffmpegPath = await FfmpegInstaller.FindOrOfferDownload(FfmpegInstaller.AskOnConsole);
             if (ffmpegPath == null)
             {
-                Console.WriteLine($"{Ffmpeg.ExeName} not found next to the app or on PATH.");
                 return;
             }
 

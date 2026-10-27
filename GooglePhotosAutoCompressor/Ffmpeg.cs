@@ -16,13 +16,16 @@ namespace GooglePhotosAutoCompressor
 
         public static string ExeName => OperatingSystem.IsWindows() ? "ffmpeg.exe" : "ffmpeg";
 
-        /// <summary>Bundled copy next to the app first, then PATH. Null when not found.</summary>
-        public static string? FindExecutable()
+        /// <summary>Bundled copy next to the app first, then <paramref name="extraDirs"/>, then PATH. Null when not found.</summary>
+        public static string? FindExecutable(params string[] extraDirs)
         {
-            string bundled = Path.Combine(AppContext.BaseDirectory, "tools", ExeName);
-            if (File.Exists(bundled))
+            foreach (string dir in extraDirs.Prepend(Path.Combine(AppContext.BaseDirectory, "tools")))
             {
-                return bundled;
+                string candidate = Path.Combine(dir, ExeName);
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
             }
 
             string? pathVariable = Environment.GetEnvironmentVariable("PATH");
