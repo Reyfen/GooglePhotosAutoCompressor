@@ -19,12 +19,24 @@ namespace GooglePhotosAutoCompressor.Modules
 
             List<FileItem> selected = new();
             using CancellationTokenSource cts = new();
-            await LargeFileLocator.EnumearteFiles(page, SelectTile, cts.Token);
+            bool sawWholeList = await LargeFileLocator.EnumearteFiles(page, SelectTile, cts.Token);
 
             foreach (FileItem missing in pending.Values)
             {
-                Console.WriteLine($"Deletor: original not found in large files list: {missing.MediaKey} ({missing.Date})");
+                if (sawWholeList)
+                {
+                    // Already gone (an earlier delete went through but was not recorded, or the user
+                    // removed it by hand). Without this the copy would never be uploaded.
+                    missing.OriginalDeleted = true;
+                    Console.WriteLine($"Deletor: original no longer in the list, treating as binned: {missing.MediaKey} ({missing.Date})");
+                }
+                else
+                {
+                    Console.WriteLine($"Deletor: original not reached in the list, will retry next run: {missing.MediaKey} ({missing.Date})");
+                }
             }
+
+            files.Save();
 
             if (selected.Count == 0)
             {
