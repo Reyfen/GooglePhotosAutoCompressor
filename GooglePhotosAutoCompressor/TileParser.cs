@@ -32,6 +32,8 @@ namespace GooglePhotosAutoCompressor
             texts[sizeIndex] = string.Empty;
 
             DateOnly date = default;
+            // en-GB writes September as "Sept"; the invariant culture only knows "Sep".
+            texts = texts.Select(t => t.Replace(" sept ", " sep ")).ToArray();
             int dateIndex = Array.FindIndex(texts, t => DateOnly.TryParseExact(t, Const.DATE_FORMATS, CultureInfo.InvariantCulture, DateTimeStyles.None, out date));
             if (dateIndex < 0)
             {

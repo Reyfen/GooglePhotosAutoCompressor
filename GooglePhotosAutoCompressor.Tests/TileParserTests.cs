@@ -46,6 +46,16 @@ namespace GooglePhotosAutoCompressor.Tests
             Assert.Equal(new DateOnly(2024, 10, 4), item.Date);
         }
 
+        [Theory]
+        [InlineData("4 Sept 2024")]
+        [InlineData("4 Sep 2024")]
+        public void Parse_reads_september_in_en_GB_and_short_form(string date)
+        {
+            FileItem? item = TileParser.Parse("k", new[] { "0:09", "8 MB", date });
+
+            Assert.Equal(new DateOnly(2024, 9, 4), item!.Date);
+        }
+
         [Fact]
         public void Parse_reads_tile_without_duration_as_photo()
         {
