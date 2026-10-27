@@ -58,7 +58,7 @@ namespace GooglePhotosAutoCompressor.Modules
                 }
             }
 
-            return Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GooglePhotosAutoCompressor", "chrome-profile");
+            return Path.Combine(Settings.CONFIG_DIR, "chrome-profile");
         }
 
         private static void EnsureChromiumInstalled()

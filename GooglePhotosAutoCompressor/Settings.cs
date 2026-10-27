@@ -22,8 +22,24 @@ namespace GooglePhotosAutoCompressor
         /// <summary>The settings in use. Replaced as a whole (never edited in place) when a run starts.</summary>
         public static Settings Current { get; set; } = new();
 
-        public static readonly string CONFIG_DIR = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GooglePhotosAutoCompressor");
+        /// <summary>Settings, logs, browser profile and downloaded ffmpeg: %LOCALAPPDATA% on Windows, ~/.local/share on Linux.</summary>
+        public static readonly string CONFIG_DIR = Path.Combine(LocalAppData(), "GooglePhotosAutoCompressor");
+
+        /// <summary>
+        /// On Linux .NET returns "" for LocalApplicationData when ~/.local/share does not exist yet (fresh
+        /// accounts), which would put all app files in the current folder. Create it, and fall back to $HOME.
+        /// </summary>
+        internal static string LocalAppData()
+        {
+            string dir = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData, Environment.SpecialFolderOption.Create);
+            if (string.IsNullOrEmpty(dir) == false)
+            {
+                return dir;
+            }
+
+            string home = Environment.GetFolderPath(Environment.SpecialFolder.UserProfile);
+            return Path.Combine(string.IsNullOrEmpty(home) ? Path.GetTempPath() : home, ".local", "share");
+        }
 
         public static readonly string DEFAULT_PATH = Path.Combine(CONFIG_DIR, "settings.json");
 

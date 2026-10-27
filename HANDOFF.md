@@ -1,6 +1,6 @@
 # Handoff
 
-Last updated: 2026-10-27, branch `fix/robustness` (from `dev`, not merged or pushed).
+Last updated: 2026-10-27, branch `fix/robustness` (pushed; `dev` was fast-forwarded to it earlier).
 
 ## Status
 Robustness pass finished: one commit per fix (`git log dev..fix/robustness`).
@@ -22,6 +22,8 @@ Robustness pass finished: one commit per fix (`git log dev..fix/robustness`).
 | 13 | Linux: Chromium fallback, profile location, sign-in without timeout | `Modules/Initlizer.cs` |
 | 14 | Prompted ffmpeg download with SHA-256 check | `FfmpegInstaller.cs` |
 | 15 | CI (Windows + Linux), README, LFS pointer guard | `.github/workflows/ci.yml` |
+| 22 | Packages: portable Windows exe (`publish.ps1`), AppImage `.tar.gz` + `.deb` (`packaging/linux/build-packages.sh`), `--check` setup check, `Packages` workflow testing them on clean VMs/containers | `publish.ps1`, `packaging/`, `.github/workflows/packages.yml`, `SetupCheck.cs` |
+| 21 | Avalonia desktop app (Run / Items / Settings / Help), `--cli`, UI tests drawn headless | `GooglePhotosAutoCompressor.App/`, `GooglePhotosAutoCompressor.UiTests/` |
 | 20 | Settings (`settings.json` in LocalAppData) replace the batch/threshold/quality constants; `Pipeline` runs the steps with Stop, progress, retry and internet waits; core is now a library (`GooglePhotosAutoCompressor.Core.dll`) | `Settings.cs`, `Pipeline.cs`, `AppSupport.cs` |
 | 19 | Resume after crash / power cut / internet loss (see "Interruptions" below) | `DurableFile.cs`, `Network.cs`, all modules |
 | 18 | Root scripts: `build.ps1` (build + unit tests, Live excluded), `integration_tests.ps1` (live tests; options set env vars for the run only and restore them). README rewritten for non-developers | `build.ps1`, `integration_tests.ps1`, `README.md` |
@@ -48,6 +50,22 @@ Every step only acts on what the state file says is ready, and the file is saved
 
 Not covered: a photo copy whose upload was wrongly reported as done (photos have no date step to notice it). Rare: needs the progress bar to vanish while the connection checks every 5 s all pass.
 
+## Desktop app (`GooglePhotosAutoCompressor.App`)
+- Assembly name `GooglePhotosAutoCompressor` (the exe); the core is `GooglePhotosAutoCompressor.Core.dll` (library). `InternalsVisibleTo` lets the app and tests use the internal core types.
+- Avalonia 11.3.22 (not 12: the 11 API is known and stable), CommunityToolkit.Mvvm, compiled bindings. `ViewModels/MainViewModel` talks to the core only through `Pipeline` + `PipelineHost` callbacks (marshalled to the UI thread).
+- Log: every `Console.WriteLine` goes through `TeeTextWriter` to the window and to `<config>/logs/*.log` (last 30 kept).
+- UX features: safe Stop, six-step progress, per-video ffmpeg progress, space saved + counts, items list with filter/search, retry failed, free up disk space, confirm-before-bin dialog (with "don't ask again"), settings saved instantly and locked during a run, keep PC awake (Windows `SetThreadExecutionState`, Linux `systemd-inhibit`), ask before closing mid-run, single instance (`AppLock`), Check setup, light/dark theme from the OS.
+- `--cli [--yes]` runs one session in a terminal; `--check [--no-browser]` runs the setup check (exit code 0 = OK; the internet result does not count).
+- UI tests (`GooglePhotosAutoCompressor.UiTests`) use Avalonia.Headless with Skia and save screenshots to `%TEMP%/gpac-ui-screens`.
+- The app uses its own browser profile in `<config>/chrome-profile`, so the owner signs in once more in the app. The live tests still use the old `GooglePhotosAutoCompressor/bin/Debug/net8.0/chrome-profile`.
+
+## Packages
+- Windows: one self-contained single-file exe (~145 MB, ffmpeg and the Playwright driver inside, unpacked to `%TEMP%/.net` on first start). Needs Git LFS locally for the bundled ffmpeg; CI downloads ffmpeg from BtbN instead (saves LFS bandwidth).
+- Linux: self-contained folder in an AppImage (tar.gz keeps the exec bit) and in a .deb (`/opt/google-photos-auto-compressor`, `/usr/bin/google-photos-auto-compressor`, desktop entry and icon). `InvariantGlobalization` = no libicu dependency. The .deb `Recommends: ffmpeg`; the AppImage offers to download it.
+- `<config>` = `Settings.CONFIG_DIR`. On Linux .NET returns "" for LocalApplicationData when `~/.local/share` does not exist; `Settings.LocalAppData()` creates it (found by the package tests: the first CI run wrote to the current folder).
+- Verified 2026-10-27 by the Packages workflow (run 40582378937): Windows VM (setup check incl. Chrome, window opened, screenshot), Ubuntu 24.04 VM (AppImage mounted with FUSE like a double-click, and .deb, both with Chrome), containers Ubuntu 22.04/24.04 .deb, Debian 12 .deb + AppImage, Fedora 41 AppImage. All passed; screenshots show the window drawn. Not tested: a real double-click in a desktop file manager, arm64, Linux Mint/other desktops.
+- This PC has under 2 GB free on C:, so Linux builds/tests run only on GitHub Actions, not locally (Docker/WSL images would fill the disk).
+
 ## Live page tests (`Tests/Live`, trait `Category=Live`)
 - The owner does not want ffmpeg covered by AI tests. These cover the Google Photos pages and clicks of each step instead.
 - `LivePhotosFixture` opens one Chrome with the app's profile and sets `SkipReason` with exact instructions when something is missing: Claude Code, a profile, a free profile lock, or a sign-in. Profile lookup order: `GPAC_TEST_PROFILE_DIR`, then `GooglePhotosAutoCompressor/bin/{Debug,Release}/net8.0/chrome-profile`, then LocalAppData.
@@ -67,7 +85,7 @@ Not covered: a photo copy whose upload was wrongly reported as done (photos have
   - the debug `Console.ReadLine`
   - the batch size of 50 (it stays at 10)
 - The downloaded file's type decides how an item is compressed, not the tile: a video tile whose duration hasn't loaded yet looks like a photo. `.jpg`/`.jpeg` go to `PhotoCompressor`; other photo types are skipped.
-- JPEG: at most 16 MP (`Const.MAX_PHOTO_PIXELS`), quality 85. EXIF, ICC and XMP are kept. A photo without an EXIF date taken is skipped, because Google would place the copy at the upload date.
+- JPEG: at most 16 MP (`Settings.MaxPhotoMegapixels`), quality 85 (`Settings.PhotoJpegQuality`). EXIF, ICC and XMP are kept. A photo without an EXIF date taken is skipped, because Google would place the copy at the upload date.
 - Check: the copy opens, and proportions (within 1%), orientation and date taken are unchanged. Size must be ≤ 90%, as for videos.
 - No date step for photos: the upload step sets `DateSet` for JPEG copies. Google places them by EXIF date, not at the top of the library, so the date step would not find them anyway. Photo copies don't record `UploadedMediaKey`. The `_compressed` name check in the download step still stops them being compressed twice.
 - ffprobe was considered (owner's question): it can read photo tags, but ffmpeg can't write EXIF into JPEGs, so Magick.NET is used. ffprobe for reading video duration would be a small, separate improvement.
@@ -88,11 +106,11 @@ Side exits: `CompressionSkipped` (not worth it / unsupported / own copy) and `Fa
   - No ffmpeg on PATH: the real download test downloaded, checked and ran ffmpeg. The 8 ffmpeg-dependent tests skipped.
   - BtbN Linux ffmpeg on PATH: 71 passed, 1 skipped (the download test, switched off for that pass).
 - The browser part was not run on Linux (needs a desktop session and a Google sign-in).
-- CI workflow is written but has not run yet (branch not pushed).
+- CI runs on GitHub (Windows + Ubuntu); the Windows job failed until 2026-10-27 because a test expected the LFS-pointer ffmpeg.exe to be used (fixed).
 
 ## Not verified / needs the owner
 - **The full app has not been run against live Google Photos** (only the read-only page tests). The app deletes items.
-  First live run: try it on a test account, or watch it with `TOTAL_FILES_TO_PROCESS_IN_ONE_BATCH` set low.
+  First live run: try it on a test account, or watch it with "Items per batch" set low (Settings page). Keep "Show what will be moved and ask first" on.
   Things to watch:
   - The delete check (tile disappears after "Move to bin").
   - Upload detection (`Selectors.UPLOAD_PROGRESS`).
@@ -103,8 +121,5 @@ Side exits: `CompressionSkipped` (not worth it / unsupported / own copy) and `Fa
 - **Storage-full upload errors.** Google's error dialog is not detected; such files stay unconfirmed and are retried.
 
 ## Ideas for later
-- Photo compression. The owner started `feature/photo_processing` (adds `MediaType`). It conflicts with the `FileItem`/`LargeFileLocator` changes here, so merge it by hand: photo tiles currently fail `TileParser.Parse` (no duration).
-- Delete local downloads after a successful upload, to save disk space.
 - Read item data from Google's `batchexecute` network responses instead of page text.
 - Saved-page snapshot tests for selectors; a live smoke test on a test account; a vision-model fallback when a selector fails (could reuse `Tests/ClaudeCode.cs`).
-- A GitHub release workflow that builds single-file apps for Windows and Linux.

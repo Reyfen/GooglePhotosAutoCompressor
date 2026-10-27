@@ -3,11 +3,14 @@
 Read `HANDOFF.md` first: it holds current status, open work and known gotchas. Update it in the same commit as any change it describes.
 
 ## What this is
-.NET 8 console app (Windows + Linux, desktop only – no web/WASM version planned). It drives a real Chrome window with Playwright to:
+.NET 8 desktop app (Windows + Linux, Avalonia UI – no web/WASM version planned). It drives a real Chrome window with Playwright to:
 download large videos and photos from Google Photos → compress them (ffmpeg for video, Magick.NET for JPEG) → move originals to the bin → upload the compressed copies → fix their "date taken".
 
-Pipeline lives in `GooglePhotosAutoCompressor/Program.cs`, one class per step in `Modules/`.
-Per-item progress is stored in `~/Downloads/GooglePhotosCache.json` so runs can resume.
+- `GooglePhotosAutoCompressor/` – core library (`GooglePhotosAutoCompressor.Core.dll`): `Pipeline.cs` runs the steps (one class per step in `Modules/`), `Settings.cs`, rules in `ItemRules.cs`.
+- `GooglePhotosAutoCompressor.App/` – the exe: Avalonia window (MVVM, `ViewModels/`, `Views/`), plus `--cli` and `--check`.
+- `packaging/` – Linux AppImage/.deb scripts and icon; `publish.ps1` makes the portable Windows exe.
+
+Per-item progress is stored in `~/Downloads/GooglePhotosCache.json` so runs can resume after any interruption (see "Interruptions" in HANDOFF.md).
 
 ## Rules that must hold (data safety)
 - Never move an original to the bin unless its compressed copy is verified (or already uploaded).
@@ -19,14 +22,17 @@ Per-item progress is stored in `~/Downloads/GooglePhotosCache.json` so runs can 
 ```
 dotnet build
 dotnet test
-dotnet run --project GooglePhotosAutoCompressor
+dotnet run --project GooglePhotosAutoCompressor.App
 ./build.ps1               # build + unit tests
 ./integration_tests.ps1   # live Google Photos tests (-SignIn the first time)
+./publish.ps1             # portable Windows exe in dist/ (Linux: packaging/linux/build-packages.sh)
 ```
 Tests that need ffmpeg skip themselves when it is not found. Live Google Photos page tests (`Tests/Live`, `Category=Live`) need Claude Code and a signed-in profile and must stay read-only: never upload, delete or save a date in them.
 
 ## Conventions
 - UI is forced to en-GB (`Const.LOCALE`) so aria-label selectors are stable. Keep all selectors in `Selectors.cs`.
 - Put pure logic (parsing, rules, naming) in classes without Playwright so it can be unit tested.
+- Every step takes a CancellationToken and must leave the state file consistent when stopped at any await.
+- The window talks to the core only through `Pipeline`/`PipelineHost`; keep Avalonia out of the core.
 - Small commits, one fix each.
 - Do not run the app against a real Google account without the owner's go-ahead: it deletes items.

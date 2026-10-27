@@ -25,6 +25,15 @@ namespace GooglePhotosAutoCompressor.Tests
         }
 
         [Fact]
+        public void App_folders_are_absolute_paths()
+        {
+            // On a fresh Linux account ~/.local/share may not exist; the folder must still not be relative.
+            Assert.True(Path.IsPathRooted(Settings.CONFIG_DIR), Settings.CONFIG_DIR);
+            Assert.True(Path.IsPathRooted(FfmpegInstaller.INSTALL_DIR), FfmpegInstaller.INSTALL_DIR);
+            Assert.True(Path.IsPathRooted(GooglePhotosAutoCompressor.Modules.Initlizer.GetProfileDir()));
+        }
+
+        [Fact]
         public void Saves_and_loads_every_value()
         {
             string path = Path.Combine(_dir, "settings.json");

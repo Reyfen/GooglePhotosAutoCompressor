@@ -88,10 +88,10 @@ namespace GooglePhotosAutoCompressor.Tests
             Directory.CreateDirectory(installDir);
             File.WriteAllBytes(Path.Combine(installDir, Ffmpeg.ExeName), new byte[2 * 1024 * 1024]);
 
-            // The bundled copy (Windows test runs) still wins; otherwise the extra dir is used.
+            // A real bundled copy (Windows with Git LFS) still wins; otherwise (Linux, or only an LFS pointer) the extra dir is used.
             string? found = Ffmpeg.FindExecutable(installDir);
             string bundled = Path.Combine(AppContext.BaseDirectory, "tools", Ffmpeg.ExeName);
-            Assert.Equal(File.Exists(bundled) ? bundled : Path.Combine(installDir, Ffmpeg.ExeName), found);
+            Assert.Equal(Ffmpeg.IsRealBinary(bundled) ? bundled : Path.Combine(installDir, Ffmpeg.ExeName), found);
         }
     }
 }

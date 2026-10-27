@@ -72,6 +72,8 @@ set +e
 CHECK_EXIT=${PIPESTATUS[0]}
 set -e
 if [ "$CHECK_EXIT" != "0" ]; then echo "Setup check failed ($CHECK_EXIT)"; exit 1; fi
+# The app folders must be absolute (a fresh account has no ~/.local/share yet).
+grep -q "Settings folder: /" "$OUT/$NAME-check.txt" || { echo "Settings folder is not an absolute path"; exit 1; }
 
 echo "== Opening the window on a virtual screen"
 export APP_CMD="${APP[*]}"

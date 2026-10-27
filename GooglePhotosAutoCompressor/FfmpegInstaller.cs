@@ -14,7 +14,7 @@ namespace GooglePhotosAutoCompressor
         public const string RELEASE_URL = "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/";
 
         public static readonly string INSTALL_DIR = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GooglePhotosAutoCompressor", "tools");
+            Settings.CONFIG_DIR, "tools");
 
         /// <summary>Returns a usable ffmpeg path, asking the user to download one when none is found. Null if declined or failed.</summary>
         public static async Task<string?> FindOrOfferDownload(Func<string, Task<bool>> askYesNo)
