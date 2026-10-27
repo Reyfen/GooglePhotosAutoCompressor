@@ -16,7 +16,6 @@ namespace GooglePhotosAutoCompressor.Modules
             {
                 ILocator tiles = page.Locator("[data-media-key]:has(div[role='checkbox'])");
                 int tilesCount = await tiles.CountAsync();
-                bool anyAdded = false;
                 for (int tileIndex = 0; tileIndex < tilesCount && cancellationToken.IsCancellationRequested == false; tileIndex++)
                 {
                     ILocator tile = tiles.Nth(tileIndex);
@@ -26,11 +25,10 @@ namespace GooglePhotosAutoCompressor.Modules
                         continue;
                     }
 
-                    anyAdded = true;
                     await process(tile, item);
                 }
 
-                if (anyAdded == false || cancellationToken.IsCancellationRequested)
+                if (cancellationToken.IsCancellationRequested)
                 {
                     break;
                 }
@@ -65,6 +63,11 @@ namespace GooglePhotosAutoCompressor.Modules
             }
 
             long size = ParseSizeToBytes(texts[sizeIndex]);
+            if (size <= 0)
+            {
+                return null;
+            }
+
             texts[sizeIndex] = string.Empty;
 
             DateOnly date = default;
@@ -91,7 +94,9 @@ namespace GooglePhotosAutoCompressor.Modules
             var parts = input.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
             if (parts.Length != 2)
-                throw new FormatException("Invalid size format");
+            {
+                return -1;
+            }
 
             double value = double.Parse(parts[0], CultureInfo.InvariantCulture);
             string unit = parts[1].ToUpperInvariant();

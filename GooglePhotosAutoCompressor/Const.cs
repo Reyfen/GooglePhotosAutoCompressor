@@ -16,5 +16,8 @@
             "dd MMM yyyy",
         };
         public static readonly string DOWNLOADS_PATH = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), "Downloads");
+
+        public const int TOTAL_FILES_TO_PROCESS_IN_ONE_BATCH = 10;
+        public const double MIN_SIZE_PER_SEC_TO_COMPRESS = 0.8 * 1024 * 1024;
     }
 }

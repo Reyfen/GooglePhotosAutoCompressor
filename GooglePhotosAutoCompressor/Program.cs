@@ -12,6 +12,8 @@ namespace GooglePhotosAutoCompressor
             try
             {
                 await Initlizer.Login(page);
+                //Console.WriteLine("\n===\nPress any key to continue\n===\n");
+                //Console.ReadKey();
                 FileItemsData files = await Downloader.DownloadUncommresedFiles(page);
                 await Compressor.CompressFiles(files);
                 await Deletor.DeleteCompressedFiles(page, files);
