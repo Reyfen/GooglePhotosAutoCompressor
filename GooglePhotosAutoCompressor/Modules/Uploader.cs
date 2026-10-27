@@ -12,7 +12,7 @@ namespace GooglePhotosAutoCompressor.Modules
 
             foreach (var file in files.Items)
             {
-                if (file.CompressUploaded || string.IsNullOrEmpty(file.CompressPath))
+                if (ItemRules.CanUpload(file) == false)
                 {
                     continue;
                 }
