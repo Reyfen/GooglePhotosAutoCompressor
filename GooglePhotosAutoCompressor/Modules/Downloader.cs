@@ -4,34 +4,39 @@ namespace GooglePhotosAutoCompressor.Modules
 {
     internal class Downloader
     {
-        public static async Task<FileItemsData> DownloadUncommresedFiles(IPage page)
+        public static async Task DownloadUncommresedFiles(IPage page, FileItemsData itemsData, CancellationToken cancellationToken)
         {
             Console.WriteLine("\n===\nDownloadUncommresedFiles\n===\n");
 
-            FileItemsData itemsData = new ();
-
-            using SemaphoreSlim semaphore = new SemaphoreSlim(5);
+            Settings settings = Settings.Current;
+            using SemaphoreSlim semaphore = new SemaphoreSlim(settings.ParallelDownloads);
 
             List<Task> downloadTasks = new();
-            using CancellationTokenSource cts = new();
-            int filesToFinishProcessing = itemsData.Items.Count(ItemRules.IsInProgress);
+            // Stops the scan: batch full, disk full, a zip, or the user pressed Stop.
+            using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+            int filesToFinishProcessing = itemsData.Snapshot().Count(ItemRules.IsInProgress);
 
             // Our own uploaded copies show up in the list too; never compress them again.
-            HashSet<string> ownCopies = itemsData.Items
+            HashSet<string> ownCopies = itemsData.Snapshot()
                 .Select(i => i.UploadedMediaKey)
                 .OfType<string>()
                 .ToHashSet();
 
-            if (filesToFinishProcessing >= Const.TOTAL_FILES_TO_PROCESS_IN_ONE_BATCH)
+            if (filesToFinishProcessing >= settings.ItemsPerBatch)
             {
-                return itemsData;
+                Console.WriteLine($"Downloader: {filesToFinishProcessing} items already in progress, finishing those first.");
+                return;
             }
 
-            await LargeFileLocator.EnumearteFiles(page, HandleFileItem, cts.Token);
-
-            await Task.WhenAll(downloadTasks);
-
-            return itemsData;
+            try
+            {
+                await LargeFileLocator.EnumearteFiles(page, HandleFileItem, cts.Token);
+            }
+            finally
+            {
+                // Never leave download tasks running behind the next step, even when the scan failed.
+                await Task.WhenAll(downloadTasks);
+            }
 
             async Task HandleFileItem(ILocator tile, FileItem item)
             {
@@ -48,9 +53,18 @@ namespace GooglePhotosAutoCompressor.Modules
                     return;
                 }
 
+                Directory.CreateDirectory(FilePaths.DOWNLOAD_DIR);
+                if (DiskSpace.HasRoomFor(item.Size, DiskSpace.FreeBytes(FilePaths.DOWNLOAD_DIR), settings.MinFreeDiskBytes) == false)
+                {
+                    Console.WriteLine($"Downloader: not enough free disk space in {FilePaths.DOWNLOAD_DIR} " +
+                                      $"(keeping {settings.MinFreeDiskGb} GB free). Stopping downloads for this run.");
+                    cts.Cancel();
+                    return;
+                }
+
                 filesToFinishProcessing++;
 
-                if (filesToFinishProcessing >= Const.TOTAL_FILES_TO_PROCESS_IN_ONE_BATCH)
+                if (filesToFinishProcessing >= settings.ItemsPerBatch)
                 {
                     cts.Cancel();
                 }
@@ -72,9 +86,9 @@ namespace GooglePhotosAutoCompressor.Modules
                 catch (Exception e) when (e is PlaywrightException or TimeoutException or InvalidOperationException)
                 {
                     semaphore.Release();
-                    item.FailCount++;
-                    itemsData.Save();
                     Console.WriteLine($"Downloader: could not start download for {item.MediaKey}: {e.Message}");
+                    await CountFailure(item);
+                    itemsData.Save();
                     return;
                 }
 
@@ -124,18 +138,28 @@ namespace GooglePhotosAutoCompressor.Modules
                         Console.WriteLine($"start: {path}");
                         // Save under a temp name so a crash never leaves a half file that looks finished.
                         string partPath = path + ".part";
-                        await download.SaveAsAsync(partPath);
+                        using (cancellationToken.Register(() => _ = download.CancelAsync()))
+                        {
+                            await download.SaveAsAsync(partPath);
+                        }
+
+                        cancellationToken.ThrowIfCancellationRequested();
                         File.Move(partPath, path, true);
                         item.DownloadPath = path;
                         itemsData.Save();
                         Console.WriteLine($"ready: {path}");
                     }
+                    catch (Exception e) when (cancellationToken.IsCancellationRequested)
+                    {
+                        // Stopped by the user: not the item's fault. The next run downloads it again.
+                        Console.WriteLine($"Downloader: stopped {path} ({e.GetType().Name})");
+                    }
                     catch (Exception e)
                     {
                         // One failed download must not stop the others.
-                        item.FailCount++;
-                        itemsData.Save();
                         Console.WriteLine($"Downloader: failed {path}: {e.Message}");
+                        await CountFailure(item);
+                        itemsData.Save();
                     }
                     finally
                     {
@@ -144,6 +168,19 @@ namespace GooglePhotosAutoCompressor.Modules
                 }));
 
                 await Task.Delay(100);
+            }
+        }
+
+        /// <summary>An item only loses an attempt when the internet was up; a dropped connection is not its fault.</summary>
+        internal static async Task CountFailure(FileItem item)
+        {
+            if (await Network.IsOnlineAsync())
+            {
+                item.FailCount++;
+            }
+            else
+            {
+                Console.WriteLine($"Downloader: no internet, not counted as a failure: {item.MediaKey}");
             }
         }
 

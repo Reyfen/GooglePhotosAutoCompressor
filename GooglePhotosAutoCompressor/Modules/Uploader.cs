@@ -7,11 +7,11 @@ namespace GooglePhotosAutoCompressor.Modules
         private const float PROGRESS_APPEAR_TIMEOUT_MS = 30_000;
         private const float UPLOAD_TIMEOUT_MS = 30 * 60_000;
 
-        internal static async Task UploadFiles(IPage page, FileItemsData files)
+        internal static async Task UploadFiles(IPage page, FileItemsData files, CancellationToken cancellationToken = default)
         {
             Console.WriteLine("\n===\nUploadFiles\n===\n");
 
-            FileItem[] toUpload = files.Items.Where(ItemRules.CanUpload).ToArray();
+            FileItem[] toUpload = files.Snapshot().Where(ItemRules.CanUpload).ToArray();
             if (toUpload.Length == 0)
             {
                 return;
@@ -19,8 +19,10 @@ namespace GooglePhotosAutoCompressor.Modules
 
             await page.GotoAsync($"https://photos.google.com/?hl={Const.LOCALE}");
 
-            foreach (FileItem file in toUpload)
+            for (int i = 0; i < toUpload.Length && cancellationToken.IsCancellationRequested == false; i++)
             {
+                FileItem file = toUpload[i];
+                DateTime startedAt = DateTime.UtcNow;
                 try
                 {
                     IFileChooser fileChooser = await page.RunAndWaitForFileChooserAsync(async () =>
@@ -30,7 +32,17 @@ namespace GooglePhotosAutoCompressor.Modules
                     });
                     await fileChooser.SetFilesAsync(file.CompressPath);
 
-                    if (await WaitForUploadToFinish(page) == false)
+                    bool finished = await WaitForUploadToFinish(page, cancellationToken);
+
+                    // The progress bar also goes away when an upload fails, e.g. when the connection drops.
+                    // Only trust it if the internet stayed up the whole time.
+                    if (finished && (Network.WasOfflineSince(startedAt) || await Network.IsOnlineAsync() == false))
+                    {
+                        Console.WriteLine($"Uploader: the internet dropped during the upload of {file.CompressPath}; it will be uploaded again.");
+                        finished = false;
+                    }
+
+                    if (finished == false)
                     {
                         // Not marked as uploaded: the next run uploads it again. Google Photos ignores
                         // an identical re-upload, and the date step also confirms uploads it finds.
@@ -38,11 +50,9 @@ namespace GooglePhotosAutoCompressor.Modules
                         continue;
                     }
 
-                    file.CompressUploaded = true;
-                    // Photo copies keep their EXIF date taken (checked when compressed), so the date step is not needed.
-                    file.DateSet |= PhotoCompressor.IsSupported(file.CompressPath);
+                    MarkUploaded(file);
                     files.Save();
-                    Console.WriteLine($"Uploader: uploaded {file.CompressPath}");
+                    Console.WriteLine($"Uploader: [{i + 1}/{toUpload.Length}] uploaded {file.CompressPath}");
                 }
                 catch (PlaywrightException e)
                 {
@@ -51,8 +61,15 @@ namespace GooglePhotosAutoCompressor.Modules
             }
         }
 
+        internal static void MarkUploaded(FileItem file)
+        {
+            file.CompressUploaded = true;
+            // Photo copies keep their EXIF date taken (checked when compressed), so the date step is not needed.
+            file.DateSet |= PhotoCompressor.IsSupported(file.CompressPath);
+        }
+
         /// <summary>True when the progress indicator appeared and then went away.</summary>
-        private static async Task<bool> WaitForUploadToFinish(IPage page)
+        private static async Task<bool> WaitForUploadToFinish(IPage page, CancellationToken cancellationToken)
         {
             ILocator uploadProgress = page.Locator(Selectors.UPLOAD_PROGRESS).First;
 
@@ -65,12 +82,26 @@ namespace GooglePhotosAutoCompressor.Modules
                 return false;
             }
 
-            await uploadProgress.WaitForAsync(new()
+            // Wait in short steps so Stop is noticed; an upload left running when the browser closes is retried next run.
+            DateTime deadline = DateTime.UtcNow.AddMilliseconds(UPLOAD_TIMEOUT_MS);
+            while (DateTime.UtcNow < deadline)
             {
-                State = WaitForSelectorState.Detached,
-                Timeout = UPLOAD_TIMEOUT_MS,
-            });
-            return true;
+                if (cancellationToken.IsCancellationRequested)
+                {
+                    return false;
+                }
+
+                try
+                {
+                    await uploadProgress.WaitForAsync(new() { State = WaitForSelectorState.Detached, Timeout = 2000 });
+                    return true;
+                }
+                catch (TimeoutException)
+                {
+                }
+            }
+
+            return false;
         }
     }
 }

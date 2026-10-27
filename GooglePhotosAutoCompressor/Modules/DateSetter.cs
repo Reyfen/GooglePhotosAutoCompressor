@@ -5,12 +5,15 @@ namespace GooglePhotosAutoCompressor.Modules
 {
     internal class DateSetter
     {
-        internal static async Task SetCompressedFilesDates(IPage page, FileItemsData files)
+        /// <summary>After this many runs without finding an "uploaded" copy, upload it again.</summary>
+        internal const int MISSES_BEFORE_REUPLOAD = 3;
+
+        internal static async Task SetCompressedFilesDates(IPage page, FileItemsData files, CancellationToken cancellationToken = default)
         {
             Console.WriteLine("\n===\nSetCompressedFilesDates\n===\n");
 
             // File name shown in Google Photos -> item. Names are unique (they contain a media key id).
-            Dictionary<string, FileItem> pending = files.Items
+            Dictionary<string, FileItem> pending = files.Snapshot()
                 .Where(ItemRules.NeedsDateSet)
                 .ToDictionary(i => Path.GetFileName(i.CompressPath));
 
@@ -37,7 +40,7 @@ namespace GooglePhotosAutoCompressor.Modules
             int maxMissesInRow = 20 + pending.Count;
             int missesInRow = 0;
 
-            for (int i = 0; i < 10_000 && pending.Count > 0 && missesInRow < maxMissesInRow; i++)
+            for (int i = 0; i < 10_000 && pending.Count > 0 && missesInRow < maxMissesInRow && cancellationToken.IsCancellationRequested == false; i++)
             {
                 try
                 {
@@ -48,6 +51,7 @@ namespace GooglePhotosAutoCompressor.Modules
                         await SetDate(page, file.Date);
 
                         file.DateSet = true;
+                        file.DateSetMisses = 0;
                         file.CompressUploaded = true; // found it, so the upload certainly worked
                         file.UploadedMediaKey = ParseMediaKeyFromUrl(page.Url);
                         files.Save();
@@ -70,9 +74,32 @@ namespace GooglePhotosAutoCompressor.Modules
                 await Task.Delay(1000);
             }
 
-            foreach (string name in pending.Keys)
+            if (cancellationToken.IsCancellationRequested)
+            {
+                return;
+            }
+
+            foreach ((string name, FileItem file) in pending)
             {
                 Console.WriteLine($"DateSetter: not found this run: {name}");
+                CountMiss(file);
+            }
+
+            files.Save();
+        }
+
+        /// <summary>
+        /// An upload can look finished and still fail (connection lost, app closed mid-upload). When the copy
+        /// is not found again and again, upload it again; Google Photos ignores an identical re-upload.
+        /// </summary>
+        internal static void CountMiss(FileItem file)
+        {
+            file.DateSetMisses++;
+            if (file.DateSetMisses >= MISSES_BEFORE_REUPLOAD && file.CompressUploaded && File.Exists(file.CompressPath))
+            {
+                file.CompressUploaded = false;
+                file.DateSetMisses = 0;
+                Console.WriteLine($"DateSetter: {Path.GetFileName(file.CompressPath)} not found {MISSES_BEFORE_REUPLOAD} times, will upload it again.");
             }
         }
 

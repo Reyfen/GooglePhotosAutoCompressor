@@ -17,7 +17,7 @@ namespace GooglePhotosAutoCompressor
             Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "GooglePhotosAutoCompressor", "tools");
 
         /// <summary>Returns a usable ffmpeg path, asking the user to download one when none is found. Null if declined or failed.</summary>
-        public static async Task<string?> FindOrOfferDownload(Func<string, bool> askYesNo)
+        public static async Task<string?> FindOrOfferDownload(Func<string, Task<bool>> askYesNo)
         {
             string? found = Ffmpeg.FindExecutable(INSTALL_DIR);
             if (found != null)
@@ -32,7 +32,7 @@ namespace GooglePhotosAutoCompressor
                 return null;
             }
 
-            if (askYesNo($"{Ffmpeg.ExeName} was not found. Download it now (about 100 MB, from {RELEASE_URL}{asset})?") == false)
+            if (await askYesNo($"{Ffmpeg.ExeName} was not found. Download it now (about 100 MB, from {RELEASE_URL}{asset})?") == false)
             {
                 Console.WriteLine("Install ffmpeg (e.g. 'sudo apt install ffmpeg' or 'winget install ffmpeg') and run again.");
                 return null;
@@ -50,7 +50,9 @@ namespace GooglePhotosAutoCompressor
         }
 
         /// <summary>Console prompt. Without an interactive console the answer is no.</summary>
-        public static bool AskOnConsole(string question)
+        public static Task<bool> AskOnConsole(string question) => Task.FromResult(AskOnConsoleSync(question));
+
+        private static bool AskOnConsoleSync(string question)
         {
             if (Console.IsInputRedirected)
             {

@@ -193,7 +193,7 @@ namespace GooglePhotosAutoCompressor.Tests
             FileItem skipped = Video();
             skipped.CompressionSkipped = true;
             FileItem failed = Video();
-            failed.FailCount = Const.MAX_FAILS;
+            failed.FailCount = Settings.Current.MaxFails;
 
             foreach (FileItem item in new[] { skipped, failed })
             {

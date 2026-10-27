@@ -1,4 +1,4 @@
-﻿namespace GooglePhotosAutoCompressor
+namespace GooglePhotosAutoCompressor
 {
     internal class FileItem : IEquatable<FileItem>
     {
@@ -15,11 +15,15 @@
         public bool Verified { get; set; }
         /// <summary>Compression would not save space (or the format is unsupported); leave the original alone.</summary>
         public bool CompressionSkipped { get; set; }
-        /// <summary>Failed attempts; the item is left alone after <see cref="Const.MAX_FAILS"/>.</summary>
+        /// <summary>Failed attempts; the item is left alone after <see cref="Settings.MaxFails"/>.</summary>
         public int FailCount { get; set; }
         public bool OriginalDeleted { get; set; }
         public bool CompressUploaded { get; set; }
         public bool DateSet { get; set; }
+        /// <summary>Size of the checked copy, kept after the local file is gone (for "space saved").</summary>
+        public long CompressedSize { get; set; }
+        /// <summary>Runs in which the date step looked for the uploaded copy and did not find it.</summary>
+        public int DateSetMisses { get; set; }
         /// <summary>Media key of our uploaded copy, so later runs never treat it as a new original.</summary>
         public string? UploadedMediaKey { get; set; }
 

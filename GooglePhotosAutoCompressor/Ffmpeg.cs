@@ -55,7 +55,9 @@ namespace GooglePhotosAutoCompressor
         }
 
         /// <summary>Runs ffmpeg. Returns exit code and everything it wrote to stderr.</summary>
-        public (int exitCode, string stderr) Run(IEnumerable<string> args, bool echo = false)
+        /// <param name="onLine">Called with every stderr line (ffmpeg's "-stats" progress lines included).</param>
+        /// <param name="cancellationToken">Kills ffmpeg. The caller deletes its half-written output.</param>
+        public (int exitCode, string stderr) Run(IEnumerable<string> args, bool echo = false, Action<string>? onLine = null, CancellationToken cancellationToken = default)
         {
             var psi = new ProcessStartInfo
             {
@@ -91,10 +93,22 @@ namespace GooglePhotosAutoCompressor
                 {
                     Console.WriteLine(e.Data);
                 }
+
+                onLine?.Invoke(e.Data);
             };
             proc.BeginOutputReadLine();
             proc.BeginErrorReadLine();
-            proc.WaitForExit();
+
+            using (cancellationToken.Register(() =>
+            {
+                try { proc.Kill(entireProcessTree: true); }
+                catch (InvalidOperationException) { } // already exited
+            }))
+            {
+                proc.WaitForExit();
+            }
+
+            cancellationToken.ThrowIfCancellationRequested();
 
             return (proc.ExitCode, stderr.ToString());
         }
@@ -104,6 +118,20 @@ namespace GooglePhotosAutoCompressor
         {
             (_, string stderr) = Run(new[] { "-hide_banner", "-i", path });
             return ParseDuration(stderr);
+        }
+
+        /// <summary>Reads "time=00:01:02.50" from an ffmpeg progress line, or null.</summary>
+        public static TimeSpan? ParseProgressTime(string line)
+        {
+            Match match = Regex.Match(line, @"time=\s*(\d+):(\d{2}):(\d{2}(?:\.\d+)?)");
+            if (match.Success == false)
+            {
+                return null;
+            }
+
+            return TimeSpan.FromHours(int.Parse(match.Groups[1].Value, CultureInfo.InvariantCulture))
+                   + TimeSpan.FromMinutes(int.Parse(match.Groups[2].Value, CultureInfo.InvariantCulture))
+                   + TimeSpan.FromSeconds(double.Parse(match.Groups[3].Value, CultureInfo.InvariantCulture));
         }
 
         public static TimeSpan? ParseDuration(string ffmpegOutput)

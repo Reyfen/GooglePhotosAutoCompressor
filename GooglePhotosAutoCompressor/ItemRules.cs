@@ -5,25 +5,27 @@ namespace GooglePhotosAutoCompressor
     /// </summary>
     internal static class ItemRules
     {
-        public static bool IsCompressionReasonable(FileItem item)
+        public static bool IsCompressionReasonable(FileItem item) => IsCompressionReasonable(item, Settings.Current);
+
+        public static bool IsCompressionReasonable(FileItem item, Settings settings)
         {
             if (item.MediaType == MediaType.Image)
             {
-                return item.Size >= Const.MIN_PHOTO_SIZE_TO_COMPRESS;
+                return settings.CompressPhotos && item.Size >= settings.MinPhotoBytes;
             }
 
-            if (item.Duration <= TimeSpan.Zero)
+            if (settings.CompressVideos == false || item.Duration <= TimeSpan.Zero)
             {
                 return false;
             }
 
-            return item.Size / item.Duration.TotalSeconds >= Const.MIN_SIZE_PER_SEC_TO_COMPRESS;
+            return item.Size / item.Duration.TotalSeconds >= settings.MinVideoBytesPerSecond;
         }
 
         /// <summary>Gave up on it: not worth compressing, or failed too often.</summary>
         public static bool IsAbandoned(FileItem item)
         {
-            return item.CompressionSkipped || item.FailCount >= Const.MAX_FAILS;
+            return item.CompressionSkipped || item.FailCount >= Settings.Current.MaxFails;
         }
 
         public static bool NeedsDownload(FileItem item)
@@ -86,6 +88,42 @@ namespace GooglePhotosAutoCompressor
                    && string.IsNullOrEmpty(item.CompressPath) == false;
         }
 
+        /// <summary>Finished: copy uploaded and dated (photo copies are dated on upload).</summary>
+        public static bool IsDone(FileItem item) => item.DateSet && (item.CompressUploaded || item.OriginalDeleted);
+
+        /// <summary>One status per item for the UI, in pipeline order.</summary>
+        public static ItemStatus Describe(FileItem item)
+        {
+            if (IsDone(item)) return ItemStatus.Done;
+            if (item.CompressUploaded) return ItemStatus.Uploaded;
+            if (item.OriginalDeleted) return ItemStatus.InBin;
+            if (item.FailCount >= Settings.Current.MaxFails) return ItemStatus.Failed;
+            if (item.CompressionSkipped) return ItemStatus.Skipped;
+            if (item.Verified) return ItemStatus.Compressed;
+            if (FileExists(item.DownloadPath)) return ItemStatus.Downloaded;
+            if (IsCompressionReasonable(item) == false) return ItemStatus.Small;
+            return ItemStatus.Waiting;
+        }
+
         private static bool FileExists(string? path) => string.IsNullOrEmpty(path) == false && File.Exists(path);
+    }
+
+    internal enum ItemStatus
+    {
+        /// <summary>Big enough; not started yet.</summary>
+        Waiting,
+        /// <summary>Below the size limits (or its type is turned off); left alone.</summary>
+        Small,
+        Downloaded,
+        /// <summary>Copy made and checked.</summary>
+        Compressed,
+        /// <summary>Original moved to the bin; copy not uploaded yet.</summary>
+        InBin,
+        /// <summary>Copy uploaded; date not set yet.</summary>
+        Uploaded,
+        Done,
+        /// <summary>Copy would not save space, or the format is not supported.</summary>
+        Skipped,
+        Failed,
     }
 }

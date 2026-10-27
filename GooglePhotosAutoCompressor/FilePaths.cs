@@ -9,8 +9,44 @@ namespace GooglePhotosAutoCompressor
     /// </summary>
     internal static class FilePaths
     {
-        public static readonly string DOWNLOAD_DIR = Path.Combine(Const.DOWNLOADS_PATH, "GooglePhotosDownloadCache");
-        public static readonly string COMPRESS_DIR = Path.Combine(Const.DOWNLOADS_PATH, "GooglePhotosCompressCache");
+        public static string DOWNLOAD_DIR => Path.Combine(Settings.Current.WorkFolderOrDefault, "GooglePhotosDownloadCache");
+        public static string COMPRESS_DIR => Path.Combine(Settings.Current.WorkFolderOrDefault, "GooglePhotosCompressCache");
+
+        /// <summary>
+        /// Half-written files a crash leaves behind: downloads ("x.mov.part") and copies being encoded
+        /// ("x_compressed_1a2b3c4d.part.mov"). Finished files never match.
+        /// </summary>
+        public static bool IsPartialFile(string fileName)
+        {
+            return fileName.EndsWith(".part", StringComparison.OrdinalIgnoreCase)
+                   || System.Text.RegularExpressions.Regex.IsMatch(fileName, @"_compressed_[0-9a-f]{8}\.part\.[A-Za-z0-9]+$");
+        }
+
+        /// <summary>Deletes half-written files from earlier runs that were killed. Returns how many.</summary>
+        public static int DeletePartialFiles(params string[] dirs)
+        {
+            int deleted = 0;
+            foreach (string dir in dirs.Where(Directory.Exists))
+            {
+                foreach (string file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
+                {
+                    if (IsPartialFile(Path.GetFileName(file)))
+                    {
+                        try
+                        {
+                            File.Delete(file);
+                            deleted++;
+                        }
+                        catch (IOException)
+                        {
+                            // Still in use (another copy of the app?). Leave it.
+                        }
+                    }
+                }
+            }
+
+            return deleted;
+        }
 
         /// <summary>Stable 8-char id for a media key, safe for file names.</summary>
         public static string ShortId(string mediaKey)

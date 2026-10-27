@@ -4,13 +4,13 @@ namespace GooglePhotosAutoCompressor.Modules
 {
     internal class Deletor
     {
-        internal static async Task DeleteCompressedFiles(IPage page, FileItemsData files)
+        internal static async Task DeleteCompressedFiles(IPage page, FileItemsData files, CancellationToken cancellationToken = default)
         {
             Console.WriteLine("\n===\nDeleteCompressedFiles\n===\n");
 
             // Look for exactly these items. The old version stopped after 21 unknown tiles,
             // which skipped originals further down the list (and left duplicates after upload).
-            Dictionary<string, FileItem> pending = files.Items.Where(ItemRules.CanDeleteOriginal).ToDictionary(i => i.MediaKey);
+            Dictionary<string, FileItem> pending = files.Snapshot().Where(ItemRules.CanDeleteOriginal).ToDictionary(i => i.MediaKey);
 
             if (pending.Count == 0)
             {
@@ -18,8 +18,14 @@ namespace GooglePhotosAutoCompressor.Modules
             }
 
             List<FileItem> selected = new();
-            using CancellationTokenSource cts = new();
+            using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             bool sawWholeList = await LargeFileLocator.EnumearteFiles(page, SelectTile, cts.Token);
+
+            if (cancellationToken.IsCancellationRequested)
+            {
+                // Stopped while selecting: nothing was moved yet. Selection is lost when the page closes.
+                return;
+            }
 
             foreach (FileItem missing in pending.Values)
             {

@@ -53,7 +53,7 @@ namespace GooglePhotosAutoCompressor.Tests
 
             Assert.True(item.Verified);
             Assert.False(item.CompressionSkipped);
-            Assert.True(new FileInfo(item.CompressPath).Length <= item.Size * Const.MAX_COMPRESSED_SIZE_RATIO);
+            Assert.True(new FileInfo(item.CompressPath).Length <= item.Size * Settings.Current.MaxCompressedSizeRatio);
             Assert.True(FilePaths.IsCompressedName(Path.GetFileName(item.CompressPath)));
             Assert.Empty(Directory.GetFiles(OutDir, "*.part*"));
         }
@@ -94,7 +94,7 @@ namespace GooglePhotosAutoCompressor.Tests
             Assert.Equal(CompressResult.Ok, PhotoCompressor.CompressOne(item, OutDir));
 
             using MagickImage copy = new(item.CompressPath);
-            Assert.True((long)copy.Width * copy.Height <= Const.MAX_PHOTO_PIXELS);
+            Assert.True((long)copy.Width * copy.Height <= Settings.Current.MaxPhotoPixels);
             Assert.Equal(5000.0 / 4000, (double)copy.Width / copy.Height, 2);
         }
 

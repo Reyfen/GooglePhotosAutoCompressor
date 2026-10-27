@@ -22,9 +22,31 @@ Robustness pass finished: one commit per fix (`git log dev..fix/robustness`).
 | 13 | Linux: Chromium fallback, profile location, sign-in without timeout | `Modules/Initlizer.cs` |
 | 14 | Prompted ffmpeg download with SHA-256 check | `FfmpegInstaller.cs` |
 | 15 | CI (Windows + Linux), README, LFS pointer guard | `.github/workflows/ci.yml` |
+| 20 | Settings (`settings.json` in LocalAppData) replace the batch/threshold/quality constants; `Pipeline` runs the steps with Stop, progress, retry and internet waits; core is now a library (`GooglePhotosAutoCompressor.Core.dll`) | `Settings.cs`, `Pipeline.cs`, `AppSupport.cs` |
+| 19 | Resume after crash / power cut / internet loss (see "Interruptions" below) | `DurableFile.cs`, `Network.cs`, all modules |
 | 18 | Root scripts: `build.ps1` (build + unit tests, Live excluded), `integration_tests.ps1` (live tests; options set env vars for the run only and restore them). README rewritten for non-developers | `build.ps1`, `integration_tests.ps1`, `README.md` |
 | 17 | Photo compression (merged `feature/photo_processing`): JPEG via Magick.NET, EXIF kept, no date step | `PhotoCompressor.cs`, `TileParser.cs`, `ItemRules.cs` |
 | 16 | Live Google Photos page tests per step, checked by local Claude Code (screenshot verdict + failure diagnosis) | `Tests/Live/`, `Tests/ClaudeCode.cs` |
+
+## Interruptions (app closed, killed, power cut, internet lost)
+Every step only acts on what the state file says is ready, and the file is saved after each change, so a re-run carries on. What covers each case:
+
+| Case | What happens | Code |
+|------|--------------|------|
+| Power cut while saving state | Temp file is flushed to disk before the rename; an empty or `null` file is treated as unreadable and the `.bak` is used | `DurableFile`, `FileItemsData.Load` |
+| Killed during download or encode | `.part` files are never mistaken for finished ones and are deleted at the start of the next run | `FilePaths.IsPartialFile/DeletePartialFiles` |
+| Killed after a copy was renamed, before the save | The finished copy is found by its expected name and checked again | `Compressor.AdoptFinishedCopy` |
+| Internet drops during a step | The step fails, the pipeline waits for the connection and runs the step again (all steps resume) | `Pipeline.Step`, `Network` |
+| Internet drops during a download | Not counted as an item failure (otherwise items get abandoned after 3 drops) | `Downloader.CountFailure` |
+| Internet drops during an upload | Upload not marked done when any check failed since it started; re-uploaded next run (Google ignores identical re-uploads) | `Uploader`, `Network.WasOfflineSince` |
+| Upload looked done but never arrived | Date step does not find the copy 3 runs in a row, so it is uploaded again | `DateSetter.CountMiss` |
+| Killed between "Move to bin" and saving | Next run: original is not in the list any more, marked as binned (existing rule) | `Deletor` |
+| Stop pressed | Checked between items; ffmpeg is killed and its `.part` deleted; downloads cancelled; nothing counts as a failure | all modules take a `CancellationToken` |
+| Chrome window closed | Recognised and reported; run stops | `Pipeline.IsBrowserClosed` |
+| Disk full | Downloads stop before the disk drops under `MinFreeDiskGb` | `DiskSpace` |
+| Two copies of the app | Second one cannot get the lock file | `AppLock` |
+
+Not covered: a photo copy whose upload was wrongly reported as done (photos have no date step to notice it). Rare: needs the progress bar to vanish while the connection checks every 5 s all pass.
 
 ## Live page tests (`Tests/Live`, trait `Category=Live`)
 - The owner does not want ffmpeg covered by AI tests. These cover the Google Photos pages and clicks of each step instead.

@@ -4,8 +4,8 @@ using ImageMagick;
 namespace GooglePhotosAutoCompressor
 {
     /// <summary>
-    /// Compresses JPEG photos: at most <see cref="Const.MAX_PHOTO_PIXELS"/> pixels, JPEG quality
-    /// <see cref="Const.PHOTO_JPEG_QUALITY"/>. EXIF (date taken, location, camera, orientation), ICC colour
+    /// Compresses JPEG photos: at most <see cref="Settings.MaxPhotoMegapixels"/> pixels, JPEG quality
+    /// <see cref="Settings.PhotoJpegQuality"/>. EXIF (date taken, location, camera, orientation), ICC colour
     /// profile and XMP are kept, so Google Photos places the copy at the original date by itself.
     /// </summary>
     internal static class PhotoCompressor
@@ -105,14 +105,14 @@ namespace GooglePhotosAutoCompressor
                 return CompressResult.NotWorthIt;
             }
 
-            (uint width, uint height) = TargetSize(image.Width, image.Height, Const.MAX_PHOTO_PIXELS);
+            (uint width, uint height) = TargetSize(image.Width, image.Height, Settings.Current.MaxPhotoPixels);
             if (width != image.Width || height != image.Height)
             {
                 // Pixels are resized as stored; the EXIF orientation tag still applies unchanged.
                 image.Resize(new MagickGeometry(width, height) { IgnoreAspectRatio = true });
             }
 
-            image.Quality = Const.PHOTO_JPEG_QUALITY;
+            image.Quality = (uint)Settings.Current.PhotoJpegQuality;
             image.Format = MagickFormat.Jpeg;
             image.Write(outputPath);
             return CompressResult.Ok;
@@ -154,7 +154,7 @@ namespace GooglePhotosAutoCompressor
                 return CompressResult.Failed;
             }
 
-            if (new FileInfo(outputPath).Length > new FileInfo(originalPath).Length * Const.MAX_COMPRESSED_SIZE_RATIO)
+            if (new FileInfo(outputPath).Length > new FileInfo(originalPath).Length * Settings.Current.MaxCompressedSizeRatio)
             {
                 return CompressResult.NotWorthIt;
             }

@@ -169,6 +169,106 @@ namespace GooglePhotosAutoCompressor.Tests
         }
     }
 
+    public sealed class CompressorProgressAndStopTests : IDisposable
+    {
+        private readonly string _dir = Directory.CreateTempSubdirectory("gpac-stop-").FullName;
+        private readonly Ffmpeg? _ffmpeg = Ffmpeg.FindExecutable() is { } path ? new Ffmpeg(path) : null;
+
+        public void Dispose() => Directory.Delete(_dir, true);
+
+        private string MakeClip(string name, int seconds, string size)
+        {
+            Skip.If(_ffmpeg == null, "ffmpeg not found");
+            string path = Path.Combine(_dir, name);
+            (int exit, string err) = _ffmpeg!.Run(new[]
+            {
+                "-hide_banner", "-y", "-f", "lavfi", "-i", $"testsrc2=size={size}:rate=30:duration={seconds}",
+                "-c:v", "libx264", "-crf", "5", "-pix_fmt", "yuv444p", path,
+            });
+            Assert.True(exit == 0, err);
+            return path;
+        }
+
+        private static FileItem ItemFor(string path, int seconds) => new()
+        {
+            MediaKey = Path.GetFileName(path),
+            Duration = TimeSpan.FromSeconds(seconds),
+            Size = new FileInfo(path).Length,
+            DownloadPath = path,
+        };
+
+        [SkippableFact]
+        public void Reports_progress_while_compressing()
+        {
+            FileItem item = ItemFor(MakeClip("progress.mp4", 4, "640x360"), 4);
+            List<double> reported = new();
+            void OnProgress(FileItem f, double p)
+            {
+                if (f == item) lock (reported) reported.Add(p);
+            }
+
+            Compressor.Progress += OnProgress;
+            try
+            {
+                Assert.Equal(CompressResult.Ok, Compressor.CompressOne(_ffmpeg!, item, Path.Combine(_dir, "out")));
+            }
+            finally
+            {
+                Compressor.Progress -= OnProgress;
+            }
+
+            Assert.Contains(0.0, reported);
+            Assert.True(reported.Max() > 0.5, string.Join(", ", reported));
+            Assert.Equal(item.CompressedSize, new FileInfo(item.CompressPath).Length);
+        }
+
+        [SkippableFact]
+        public void Stop_kills_ffmpeg_and_leaves_nothing_half_written()
+        {
+            FileItem item = ItemFor(MakeClip("long.mp4", 20, "1280x720"), 20);
+            string outDir = Path.Combine(_dir, "out");
+            using var cts = new CancellationTokenSource();
+            Compressor.Progress += StopAtFirstProgress;
+            void StopAtFirstProgress(FileItem f, double p)
+            {
+                if (f == item && p > 0) cts.Cancel();
+            }
+
+            try
+            {
+                Assert.ThrowsAny<OperationCanceledException>(() => Compressor.CompressOne(_ffmpeg!, item, outDir, cts.Token));
+            }
+            finally
+            {
+                Compressor.Progress -= StopAtFirstProgress;
+            }
+
+            Assert.Empty(Directory.GetFiles(outDir));
+            Assert.False(item.Verified);
+            Assert.Equal(0, item.FailCount); // stopping is not a failure
+        }
+
+        [SkippableTheory]
+        [InlineData("Max720p", "1920x1080", 1280, 720)]
+        [InlineData("Max720p", "1080x1920", 720, 1280)]
+        [InlineData("Max720p", "640x360", 640, 360)]   // never scaled up
+        [InlineData("Max1080p", "1920x1080", 1920, 1080)]
+        [InlineData("Half", "1920x1080", 960, 540)]
+        [InlineData("Max720p", "1921x1081", 1280, 720)] // odd sizes end up even
+        public void Resolution_setting_gives_expected_size(string resolutionName, string size, int width, int height)
+        {
+            var resolution = Enum.Parse<VideoResolution>(resolutionName);
+            string input = MakeClip($"in_{size}.mp4", 1, size);
+            string output = Path.Combine(_dir, $"out_{resolution}_{size}.mp4");
+
+            (int exit, string err) = _ffmpeg!.Run(Compressor.BuildArgs(input, output, copyAudio: true, resolution, crf: 30));
+            Assert.True(exit == 0, err);
+
+            (_, string info) = _ffmpeg.Run(new[] { "-hide_banner", "-i", output });
+            Assert.Matches($@"\b{width}x{height}\b", info);
+        }
+    }
+
     public class FfmpegTests
     {
         [Fact]

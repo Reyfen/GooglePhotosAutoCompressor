@@ -73,21 +73,34 @@ namespace GooglePhotosAutoCompressor.Modules
 
         private static string FirstLine(string text) => text.Split('\n')[0].Trim();
 
-        public static async Task Login(IPage page)
+        /// <summary>Waits (as long as it takes, until cancelled) for the user to sign in. Calls <paramref name="onWaiting"/> when sign-in is needed.</summary>
+        public static async Task Login(IPage page, CancellationToken cancellationToken = default, Action? onWaiting = null)
         {
             Console.WriteLine("\n===\nLogin\n===\n");
 
             await page.GotoAsync($"https://photos.google.com/?hl={Const.LOCALE}");
 
-            bool redirected = page.Url.StartsWith("https://www.google.com/photos/about");
-
-            if (redirected)
+            if (page.Url.StartsWith("https://photos.google.com"))
             {
-                Console.WriteLine("Sign in to Google in the browser window. Waiting...");
-                await page.GotoAsync($"https://photos.google.com/login?hl={Const.LOCALE}");
+                return;
+            }
 
-                // No timeout: typing a password and doing 2FA takes longer than Playwright's 30 s default.
-                await page.WaitForURLAsync("https://photos.google.com/**", new() { Timeout = 0 });
+            Console.WriteLine("Sign in to Google in the browser window. Waiting...");
+            onWaiting?.Invoke();
+            await page.GotoAsync($"https://photos.google.com/login?hl={Const.LOCALE}");
+
+            // Typing a password and doing 2FA can take minutes. Wait in short steps so Stop works.
+            while (true)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    await page.WaitForURLAsync("https://photos.google.com/**", new() { Timeout = 2000 });
+                    return;
+                }
+                catch (TimeoutException)
+                {
+                }
             }
         }
     }

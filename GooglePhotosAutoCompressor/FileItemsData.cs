@@ -1,4 +1,4 @@
-﻿using Newtonsoft.Json;
+using Newtonsoft.Json;
 
 namespace GooglePhotosAutoCompressor
 {
@@ -50,23 +50,26 @@ namespace GooglePhotosAutoCompressor
             }
         }
 
+        /// <summary>Raised after every save, so the UI can refresh its counts.</summary>
+        public event Action? Saved;
+
         public void Save()
         {
             lock (_lock)
             {
-                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(_path))!);
                 string json = JsonConvert.SerializeObject(Items.ToArray(), Formatting.Indented);
-                string tempPath = _path + ".tmp";
-                File.WriteAllText(tempPath, json);
+                DurableFile.WriteAllText(_path, json, BackupPath);
+            }
 
-                if (File.Exists(_path))
-                {
-                    File.Replace(tempPath, _path, BackupPath);
-                }
-                else
-                {
-                    File.Move(tempPath, _path);
-                }
+            Saved?.Invoke();
+        }
+
+        /// <summary>Copy of the items, safe to read while download tasks are saving.</summary>
+        public FileItem[] Snapshot()
+        {
+            lock (_lock)
+            {
+                return Items.ToArray();
             }
         }
 
@@ -79,7 +82,15 @@ namespace GooglePhotosAutoCompressor
 
             try
             {
-                return JsonConvert.DeserializeObject<FileItem[]>(File.ReadAllText(path)) ?? Array.Empty<FileItem>();
+                string json = File.ReadAllText(path);
+                if (string.IsNullOrWhiteSpace(json))
+                {
+                    // A power cut can leave an empty file. Treating it as "no items" would lose all progress.
+                    Console.WriteLine($"State file {path} is empty, trying backup.");
+                    return null;
+                }
+
+                return JsonConvert.DeserializeObject<FileItem[]>(json);
             }
             catch (JsonException e)
             {

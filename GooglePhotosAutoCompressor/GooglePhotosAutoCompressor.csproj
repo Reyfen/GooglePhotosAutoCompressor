@@ -1,7 +1,10 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <OutputType>Exe</OutputType>
+    <OutputType>Library</OutputType>
+    <!-- The app (GooglePhotosAutoCompressor.App) is the exe and takes the name GooglePhotosAutoCompressor. -->
+    <AssemblyName>GooglePhotosAutoCompressor.Core</AssemblyName>
+    <RootNamespace>GooglePhotosAutoCompressor</RootNamespace>
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
@@ -20,6 +23,7 @@
 
   <ItemGroup>
     <InternalsVisibleTo Include="GooglePhotosAutoCompressor.Tests" />
+    <InternalsVisibleTo Include="GooglePhotosAutoCompressor" />
   </ItemGroup>
 
   <ItemGroup>
