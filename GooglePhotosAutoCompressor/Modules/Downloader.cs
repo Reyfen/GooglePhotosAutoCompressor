@@ -32,10 +32,7 @@ namespace GooglePhotosAutoCompressor.Modules
 
             async Task HandleFileItem(ILocator tile, FileItem item)
             {
-                if (itemsData.Items.Add(item) == false)
-                {
-                    item = itemsData.Items.First(i => i.MediaKey == item.MediaKey);
-                }
+                item = itemsData.AddOrGet(item);
                 itemsData.Save();
 
                 if (IsCompressionReasonable(item) == false || IsDownloadNeeded(item) == false)
