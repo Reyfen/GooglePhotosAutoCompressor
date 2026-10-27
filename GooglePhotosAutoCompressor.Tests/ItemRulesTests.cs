@@ -121,6 +121,38 @@ namespace GooglePhotosAutoCompressor.Tests
         }
 
         [Fact]
+        public void Skipped_or_failed_items_are_left_alone()
+        {
+            FileItem skipped = Video();
+            skipped.CompressionSkipped = true;
+            FileItem failed = Video();
+            failed.FailCount = Const.MAX_FAILS;
+
+            foreach (FileItem item in new[] { skipped, failed })
+            {
+                item.DownloadPath = ExistingFile(item.MediaKey + ".mp4");
+                Assert.False(ItemRules.NeedsDownload(item));
+                Assert.False(ItemRules.NeedsCompression(item));
+                Assert.False(ItemRules.IsInProgress(item));
+            }
+        }
+
+        [Fact]
+        public void Downloaded_or_unchecked_copy_needs_compression()
+        {
+            FileItem downloaded = Video();
+            downloaded.DownloadPath = ExistingFile("d.mp4");
+            Assert.True(ItemRules.NeedsCompression(downloaded));
+
+            FileItem unchecked_ = Video();
+            unchecked_.CompressPath = ExistingFile("c.mp4");
+            Assert.True(ItemRules.NeedsCompression(unchecked_));
+
+            unchecked_.Verified = true;
+            Assert.False(ItemRules.NeedsCompression(unchecked_));
+        }
+
+        [Fact]
         public void Low_bitrate_and_finished_items_are_not_in_progress()
         {
             Assert.True(ItemRules.IsInProgress(Video(2)));

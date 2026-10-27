@@ -15,9 +15,15 @@ namespace GooglePhotosAutoCompressor
             return item.Size / item.Duration.TotalSeconds >= Const.MIN_SIZE_PER_SEC_TO_COMPRESS;
         }
 
+        /// <summary>Gave up on it: not worth compressing, or failed too often.</summary>
+        public static bool IsAbandoned(FileItem item)
+        {
+            return item.CompressionSkipped || item.FailCount >= Const.MAX_FAILS;
+        }
+
         public static bool NeedsDownload(FileItem item)
         {
-            if (item.OriginalDeleted || item.CompressUploaded || item.DateSet)
+            if (IsAbandoned(item) || item.OriginalDeleted || item.CompressUploaded || item.DateSet)
             {
                 return false;
             }
@@ -28,7 +34,18 @@ namespace GooglePhotosAutoCompressor
         /// <summary>Started but not finished, so it counts against the batch limit.</summary>
         public static bool IsInProgress(FileItem item)
         {
-            return IsCompressionReasonable(item) && item.DateSet == false;
+            return IsCompressionReasonable(item) && item.DateSet == false && (IsAbandoned(item) == false || item.OriginalDeleted);
+        }
+
+        /// <summary>Has a download (or an unchecked copy) that still needs compressing and checking.</summary>
+        public static bool NeedsCompression(FileItem item)
+        {
+            if (item.Verified || item.CompressUploaded || IsAbandoned(item))
+            {
+                return false;
+            }
+
+            return FileExists(item.DownloadPath) || FileExists(item.CompressPath);
         }
 
         /// <summary>

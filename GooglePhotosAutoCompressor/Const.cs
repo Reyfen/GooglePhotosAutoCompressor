@@ -19,5 +19,9 @@
 
         public const int TOTAL_FILES_TO_PROCESS_IN_ONE_BATCH = 10;
         public const double MIN_SIZE_PER_SEC_TO_COMPRESS = 0.8 * 1024 * 1024;
+        /// <summary>A compressed copy larger than this share of the original is not worth replacing it.</summary>
+        public const double MAX_COMPRESSED_SIZE_RATIO = 0.9;
+        /// <summary>After this many failed attempts an item is left alone.</summary>
+        public const int MAX_FAILS = 3;
     }
 }
