@@ -55,7 +55,7 @@ Tests that need ffmpeg skip themselves when it is not installed. The real ffmpeg
 After each check, your local [Claude Code](https://claude.com/claude-code) CLI looks at a screenshot and confirms the page looks right. When a selector or click fails, Claude Code describes what the page shows instead, so the failure tells you what Google changed. Screenshots are kept in `%TEMP%/gpac-live-screens` (`/tmp/gpac-live-screens` on Linux).
 
 - **Nothing in your account is changed:** no upload, no delete, no date saved.
-- **Needs:** Google Chrome, `claude` installed and signed in, and a signed-in profile. If something is missing, the tests are skipped and the output says what to do. To sign in during a test run, set `GPAC_TEST_SIGN_IN=1` and sign in within 5 minutes in the browser window the tests open.
+- **Needs:** Google Chrome, `claude` installed and signed in, and a signed-in profile. If something is missing, the tests are skipped and the output says what to do. To sign in during a test run, set `GPAC_TEST_SIGN_IN=1` and sign in within 15 minutes in the browser window the tests open.
 - **Privacy:** screenshots of your library (thumbnails, one opened item) are sent to Claude. A separate test Google account with a few videos is recommended. Point the tests at its profile with `GPAC_TEST_PROFILE_DIR`.
 - **Cost and time:** about 1–2 minutes and some Claude usage per run.
 - **Leave them out:** `dotnet test --filter "Category!=Live"`. To turn them off for every run, set `GPAC_TEST_LIVE=0`.

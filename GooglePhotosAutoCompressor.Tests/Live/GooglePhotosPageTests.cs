@@ -80,7 +80,7 @@ namespace GooglePhotosAutoCompressor.Tests.Live
             Assert.Equal(items.Count, items.Select(i => i.MediaKey).Distinct().Count());
 
             await ExpectScreen("large-files",
-                "Is this the Google Photos storage page listing large photos and videos as a grid, " +
+                "Is this the Google Photos storage page listing large photos and videos (as a list or a grid), " +
                 "with a file size shown on the items?");
         }
 

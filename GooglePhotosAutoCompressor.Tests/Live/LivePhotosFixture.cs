@@ -79,7 +79,7 @@ namespace GooglePhotosAutoCompressor.Tests.Live
             {
                 // Lets the owner sign in once in the test's browser window; the profile then stays signed in.
                 await Page.GotoAsync("https://photos.google.com/login?hl=" + Const.LOCALE);
-                try { await Page.WaitForURLAsync("https://photos.google.com/**", new() { Timeout = 5 * 60_000 }); }
+                try { await Page.WaitForURLAsync("https://photos.google.com/**", new() { Timeout = 15 * 60_000 }); }
                 catch (TimeoutException) { }
             }
 
@@ -88,7 +88,7 @@ namespace GooglePhotosAutoCompressor.Tests.Live
                 SkipReason =
                     $"Live Google Photos test skipped: the profile {profile} is not signed in (got {Page.Url}). " +
                     "Either run the app once and sign in to Google in the window it opens, or run the tests with " +
-                    "GPAC_TEST_SIGN_IN=1 and sign in within 5 minutes in the browser window the tests open.";
+                    "GPAC_TEST_SIGN_IN=1 and sign in within 15 minutes in the browser window the tests open.";
                 return;
             }
 

@@ -32,7 +32,7 @@ Robustness pass finished: one commit per fix (`git log dev..fix/robustness`).
 - `ExpectScreen` asks Claude Code a yes/no question about a screenshot. `Expect`/`Fail` wrap page actions; on failure Claude Code describes the page (`ClaudeCode.DescribeProblem`).
 - Must stay read-only. The download is cancelled, dialogs are closed with Escape, and the bin dialog test is opt-in only.
 - Not covered (can't be done read-only): the upload progress indicator (`UPLOAD_PROGRESS`), saving a date, confirming a delete.
-- Verified 2026-10-27: build and skip messages OK. The owner's saved profile is **signed out** (lands on google.com/photos/about), so all live tests skipped. The failure path was forced once on that page: Claude Code correctly said it was the signed-out landing page. **No live test has passed yet.** It needs the owner to sign in (`GPAC_TEST_SIGN_IN=1`).
+- Verified 2026-10-27: the owner signed in with `GPAC_TEST_SIGN_IN=1` (wait is now 15 min) and the profile stays signed in. Result: 7 passed, 1 skipped (bin dialog, opt-in). The large files page is a **single-column list**, not a grid; the AI question for it was too strict and was fixed. The scan read 30 tiles correctly (size, duration, date).
 
 ## Photos (`PhotoCompressor.cs`)
 - `feature/photo_processing` was merged into this branch (5023dc4). Taken over:
@@ -68,7 +68,7 @@ Side exits: `CompressionSkipped` (not worth it / unsupported / own copy) and `Fa
 - CI workflow is written but has not run yet (branch not pushed).
 
 ## Not verified / needs the owner
-- **Nothing has been run against live Google Photos.** Agents have no account access, and the app deletes items.
+- **The full app has not been run against live Google Photos** (only the read-only page tests). The app deletes items.
   First live run: try it on a test account, or watch it with `TOTAL_FILES_TO_PROCESS_IN_ONE_BATCH` set low.
   Things to watch:
   - The delete check (tile disappears after "Move to bin").
