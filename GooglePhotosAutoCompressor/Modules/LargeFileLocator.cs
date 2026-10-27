@@ -1,5 +1,4 @@
 ﻿using Microsoft.Playwright;
-using System.Globalization;
 
 namespace GooglePhotosAutoCompressor.Modules
 {
@@ -54,61 +53,7 @@ namespace GooglePhotosAutoCompressor.Modules
                 return null;
             }
 
-            string[] texts = string.Join('\n', await tile.AllInnerTextsAsync()).ToLower().Split('\n');
-
-            int sizeIndex = Array.FindIndex(texts, t => t.EndsWith("kb") || t.EndsWith("mb") || t.EndsWith("gb"));
-            if (sizeIndex < 0)
-            {
-                return null;
-            }
-
-            long size = ParseSizeToBytes(texts[sizeIndex]);
-            if (size <= 0)
-            {
-                return null;
-            }
-
-            texts[sizeIndex] = string.Empty;
-
-            DateOnly date = default;
-            int dateIndex = Array.FindIndex(texts, t => DateOnly.TryParseExact(t, Const.DATE_FORMATS, CultureInfo.InvariantCulture, DateTimeStyles.None, out date));
-            if (dateIndex < 0)
-            {
-                return null;
-            }
-
-            texts[dateIndex] = string.Empty;
-
-            TimeSpan duration = default;
-            int durationIndex = Array.FindIndex(texts, t => TimeSpan.TryParseExact(t, Const.TIME_FORMATS, CultureInfo.InvariantCulture, out duration));
-            if (durationIndex < 0)
-            {
-                return null;
-            }
-
-            return new() { MediaKey = mediaKey, Date = date, Duration = duration, Size = size };
-        }
-
-        private static long ParseSizeToBytes(string input)
-        {
-            var parts = input.Trim().Split(' ', StringSplitOptions.RemoveEmptyEntries);
-
-            if (parts.Length != 2)
-            {
-                return -1;
-            }
-
-            double value = double.Parse(parts[0], CultureInfo.InvariantCulture);
-            string unit = parts[1].ToUpperInvariant();
-
-            return unit switch
-            {
-                "B" => (long)value,
-                "KB" => (long)(value * 1024),
-                "MB" => (long)(value * 1024 * 1024),
-                "GB" => (long)(value * 1024 * 1024 * 1024),
-                _ => throw new FormatException($"Unknown unit: {unit}")
-            };
+            return TileParser.Parse(mediaKey, await tile.AllInnerTextsAsync());
         }
     }
 
