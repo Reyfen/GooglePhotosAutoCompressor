@@ -365,6 +365,16 @@
             </Border>
             <Border Classes="card">
               <StackPanel Spacing="8">
+                <TextBlock Classes="h2" Text="Check setup" />
+                <TextBlock Classes="hint" Text="Checks ffmpeg, photo compression, the browser, folders and the internet. Does not open Google Photos." />
+                <Button Content="Check setup" Command="{Binding CheckSetupCommand}" HorizontalAlignment="Left" />
+                <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsCheckingSetup}" Height="4" />
+                <SelectableTextBlock Text="{Binding SetupCheckText}" FontFamily="Cascadia Mono,Consolas,DejaVu Sans Mono,Menlo,monospace"
+                                     FontSize="12" TextWrapping="Wrap" />
+              </StackPanel>
+            </Border>
+            <Border Classes="card">
+              <StackPanel Spacing="8">
                 <TextBlock Classes="h2" Text="Shortcuts" />
                 <WrapPanel>
                   <WrapPanel.Styles><Style Selector="Button"><Setter Property="Margin" Value="0,0,8,8" /></Style></WrapPanel.Styles>

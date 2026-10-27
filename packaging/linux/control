@@ -1,0 +1,16 @@
+Package: google-photos-auto-compressor
+Version: @VERSION@
+Section: graphics
+Priority: optional
+Architecture: @ARCH@
+Installed-Size: @SIZE@
+Maintainer: Reyfen <noreply@github.com>
+Homepage: https://github.com/Reyfen/GooglePhotosAutoCompressor
+Depends: libc6 (>= 2.27), libgcc-s1 | libgcc1, libstdc++6, zlib1g, libssl3 | libssl3t64 | libssl1.1, libfontconfig1, libfreetype6, libx11-6, libice6, libsm6, libxext6, libxrandr2, libxi6, libxcursor1
+Recommends: ffmpeg
+Suggests: google-chrome-stable
+Description: Free up Google Photos storage by compressing big videos and photos
+ Opens Google Photos in Chrome, downloads the largest videos and photos,
+ makes smaller copies (ffmpeg for video, JPEG for photos), checks them,
+ moves the originals to the Google Photos bin and uploads the copies with
+ their original dates. Stops and resumes safely at any point.

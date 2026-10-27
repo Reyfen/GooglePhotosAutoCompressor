@@ -14,6 +14,16 @@ internal static class Program
     [STAThread]
     public static int Main(string[] args)
     {
+        if (args.Contains("--check"))
+        {
+            // Checks the setup without touching Google Photos. Exit code 0 when everything works.
+            ConsoleWindow.AttachToParent();
+            Settings.Current = Settings.Load(Settings.DEFAULT_PATH);
+            IReadOnlyList<CheckResult> results = SetupCheck.RunAsync(includeBrowser: args.Contains("--no-browser") == false).GetAwaiter().GetResult();
+            Console.WriteLine(SetupCheck.Format(results));
+            return results.All(r => r.Ok || r.Name == "Internet") ? 0 : 1;
+        }
+
         bool cli = args.Contains("--cli");
         if (cli)
         {

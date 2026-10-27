@@ -81,7 +81,7 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsIdle), nameof(StartStopText))]
-    [NotifyCanExecuteChangedFor(nameof(RetryFailedCommand), nameof(FreeDiskSpaceCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RetryFailedCommand), nameof(FreeDiskSpaceCommand), nameof(CheckSetupCommand))]
     private bool _isRunning;
 
     [ObservableProperty]
@@ -274,7 +274,7 @@ public partial class MainViewModel : ObservableObject
     {
         Dispatcher.UIThread.Post(() =>
         {
-            if (_compressing != item)
+            if (ReferenceEquals(_compressing, item) == false)
             {
                 _compressing = item;
                 CurrentItemText = $"Compressing {Path.GetFileName(item.DownloadPath)} ({Format.Bytes(item.Size)})";
@@ -481,6 +481,26 @@ public partial class MainViewModel : ObservableObject
 
     [RelayCommand]
     private Task OpenProjectPage() => _dialogs.Open("https://github.com/Reyfen/GooglePhotosAutoCompressor");
+
+    [ObservableProperty] private string _setupCheckText = "";
+    [ObservableProperty] private bool _isCheckingSetup;
+
+    /// <summary>Checks ffmpeg, photos, browser, folders and internet without touching Google Photos.</summary>
+    [RelayCommand(CanExecute = nameof(IsIdle))]
+    private async Task CheckSetup()
+    {
+        IsCheckingSetup = true;
+        SetupCheckText = "Checking…";
+        try
+        {
+            IReadOnlyList<CheckResult> results = await Task.Run(() => SetupCheck.RunAsync());
+            SetupCheckText = string.Join(Environment.NewLine, results.Select(r => $"{(r.Ok ? "✓" : "✗")}  {r.Name}: {r.Detail}"));
+        }
+        finally
+        {
+            IsCheckingSetup = false;
+        }
+    }
 
     private static async Task<T> OnUi<T>(Func<Task<T>> action) => await Dispatcher.UIThread.InvokeAsync(action);
 }

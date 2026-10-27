@@ -1,0 +1,4 @@
+#!/bin/sh
+# Entry point of the AppImage: starts the app from inside the mounted image.
+HERE="$(dirname "$(readlink -f "$0")")"
+exec "$HERE/usr/lib/google-photos-auto-compressor/GooglePhotosAutoCompressor" "$@"

@@ -1,0 +1,172 @@
+name: Packages
+
+# Builds the portable Windows exe, the AppImage (.tar.gz) and the .deb, then tests each one on clean
+# machines: a fresh Windows VM, a fresh Ubuntu VM and clean Ubuntu, Debian and Fedora containers.
+# A tag like v1.2.3 also publishes a GitHub release with the three files.
+on:
+  push:
+    branches: [dev, main, master, 'fix/**', 'feature/**']
+    tags: ['v*']
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+
+jobs:
+  version:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.v.outputs.version }}
+    steps:
+      - id: v
+        run: |
+          if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
+            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=1.0.0-ci.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+          fi
+
+  windows:
+    needs: version
+    runs-on: windows-latest
+    steps:
+      # No LFS: the bundled ffmpeg is downloaded from the same source the app uses (saves LFS bandwidth).
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Get ffmpeg to bundle
+        shell: pwsh
+        run: |
+          $zip = "$env:RUNNER_TEMP\ffmpeg.zip"
+          Invoke-WebRequest "https://github.com/BtbN/FFmpeg-Builds/releases/download/latest/ffmpeg-master-latest-win64-gpl.zip" -OutFile $zip
+          Expand-Archive $zip "$env:RUNNER_TEMP\ffmpeg"
+          $exe = Get-ChildItem "$env:RUNNER_TEMP\ffmpeg" -Recurse -Filter ffmpeg.exe | Select-Object -First 1
+          Copy-Item $exe.FullName GooglePhotosAutoCompressor/tools/ffmpeg.exe -Force
+      - name: Build portable exe (runs its setup check)
+        shell: pwsh
+        run: ./publish.ps1 -Version ${{ needs.version.outputs.version }}
+      - name: Open the window and take a screenshot
+        shell: pwsh
+        run: |
+          Add-Type -AssemblyName System.Windows.Forms, System.Drawing
+          $exe = Get-ChildItem dist/*.exe | Select-Object -First 1
+          $p = Start-Process $exe.FullName -PassThru
+          for ($i = 0; $i -lt 90 -and $p.MainWindowTitle -eq ""; $i++) { Start-Sleep 1; $p.Refresh(); if ($p.HasExited) { throw "App exited with $($p.ExitCode)" } }
+          if ($p.MainWindowTitle -ne "Google Photos Auto Compressor") { throw "Window not found (title '$($p.MainWindowTitle)')" }
+          Start-Sleep 3
+          $b = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
+          $bmp = New-Object System.Drawing.Bitmap $b.Width, $b.Height
+          [System.Drawing.Graphics]::FromImage($bmp).CopyFromScreen($b.Location, [System.Drawing.Point]::Empty, $b.Size)
+          New-Item -ItemType Directory -Force screens | Out-Null
+          $bmp.Save("screens/windows.png")
+          $null = $p.CloseMainWindow()
+          if (-not $p.WaitForExit(15000)) { throw "App did not close" }
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: dist/*.exe
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens-windows
+          path: screens/
+
+  linux-build:
+    needs: version
+    # Oldest supported runner: building here keeps the packages working on older distros too.
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+      - name: Build AppImage and .deb
+        run: bash packaging/linux/build-packages.sh ${{ needs.version.outputs.version }} x64
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-packages
+          path: |
+            dist/*.AppImage.tar.gz
+            dist/*.deb
+
+  linux-test-containers:
+    needs: linux-build
+    runs-on: ubuntu-latest
+    container: ${{ matrix.image }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { name: ubuntu-24.04-deb, image: 'ubuntu:24.04', mode: deb }
+          - { name: ubuntu-22.04-deb, image: 'ubuntu:22.04', mode: deb }
+          - { name: debian-12-deb, image: 'debian:12', mode: deb }
+          - { name: ubuntu-24.04-appimage, image: 'ubuntu:24.04', mode: appimage }
+          - { name: debian-12-appimage, image: 'debian:12', mode: appimage }
+          - { name: fedora-41-appimage, image: 'fedora:41', mode: appimage }
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-packages
+          path: dist
+      - name: Install, check and open the window
+        run: bash packaging/linux/test-package.sh ${{ matrix.mode }} dist screens ${{ matrix.name }}
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens-${{ matrix.name }}
+          path: screens/
+
+  # A full Ubuntu VM (with FUSE and Google Chrome): the AppImage runs the way a double-click runs it,
+  # and the setup check also starts the browser.
+  linux-test-vm:
+    needs: linux-build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-packages
+          path: dist
+      - name: FUSE for the AppImage
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq fuse3
+      - name: AppImage, mounted like a double-click
+        run: bash packaging/linux/test-package.sh appimage-fuse dist screens ubuntu-vm-appimage --with-browser
+      - name: .deb
+        run: bash packaging/linux/test-package.sh deb dist screens ubuntu-vm-deb --with-browser
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: screens-ubuntu-vm
+          path: screens/
+
+  release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: [windows, linux-test-containers, linux-test-vm]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          name: windows-exe
+          path: release
+      - uses: actions/download-artifact@v4
+        with:
+          name: linux-packages
+          path: release
+      - name: Publish release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: gh release create "$GITHUB_REF_NAME" release/* --repo "$GITHUB_REPOSITORY" --title "$GITHUB_REF_NAME" --generate-notes

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=Google Photos Auto Compressor
+GenericName=Photo and video compressor
+Comment=Free up Google Photos storage by replacing big videos and photos with smaller copies
+Exec=google-photos-auto-compressor
+Icon=google-photos-auto-compressor
+Terminal=false
+Categories=Utility;Graphics;
+Keywords=google;photos;video;compress;storage;
+StartupWMClass=GooglePhotosAutoCompressor
