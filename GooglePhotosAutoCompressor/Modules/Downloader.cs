@@ -113,7 +113,7 @@ namespace GooglePhotosAutoCompressor.Modules
 
         private static async Task<ILocator> GetDownloadButton(IPage page)
         {
-            ILocator downloadButtons = page.Locator("[aria-label='Download']");
+            ILocator downloadButtons = page.Locator(Selectors.DOWNLOAD_BUTTON);
             int count = await downloadButtons.CountAsync();
 
             for (int i = 0; i < count; i++)

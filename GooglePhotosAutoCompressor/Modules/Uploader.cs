@@ -4,40 +4,71 @@ namespace GooglePhotosAutoCompressor.Modules
 {
     internal class Uploader
     {
+        private const float PROGRESS_APPEAR_TIMEOUT_MS = 30_000;
+        private const float UPLOAD_TIMEOUT_MS = 30 * 60_000;
+
         internal static async Task UploadFiles(IPage page, FileItemsData files)
         {
             Console.WriteLine("\n===\nUploadFiles\n===\n");
 
+            FileItem[] toUpload = files.Items.Where(ItemRules.CanUpload).ToArray();
+            if (toUpload.Length == 0)
+            {
+                return;
+            }
+
             await page.GotoAsync($"https://photos.google.com/?hl={Const.LOCALE}");
 
-            foreach (var file in files.Items)
+            foreach (FileItem file in toUpload)
             {
-                if (ItemRules.CanUpload(file) == false)
+                try
                 {
-                    continue;
+                    IFileChooser fileChooser = await page.RunAndWaitForFileChooserAsync(async () =>
+                    {
+                        await page.Locator(Selectors.CREATE_BUTTON).ClickAsync();
+                        await page.Locator(Selectors.IMPORT_FROM_COMPUTER).ClickAsync();
+                    });
+                    await fileChooser.SetFilesAsync(file.CompressPath);
+
+                    if (await WaitForUploadToFinish(page) == false)
+                    {
+                        // Not marked as uploaded: the next run uploads it again. Google Photos ignores
+                        // an identical re-upload, and the date step also confirms uploads it finds.
+                        Console.WriteLine($"Uploader: could not confirm upload of {file.CompressPath}");
+                        continue;
+                    }
+
+                    file.CompressUploaded = true;
+                    files.Save();
+                    Console.WriteLine($"Uploader: uploaded {file.CompressPath}");
                 }
-
-                var fileChooser = await page.RunAndWaitForFileChooserAsync(async () =>
+                catch (PlaywrightException e)
                 {
-                    await page.Locator("[aria-label='Create and add photos']").ClickAsync();
-                    await page.Locator("[aria-label='Import photos from your computer']").ClickAsync();
-                });
-                await fileChooser.SetFilesAsync(file.CompressPath);
-                await WaitForUploadToFinish(page);
-
-                file.CompressUploaded = true;
-                files.Save();
+                    Console.WriteLine($"Uploader: failed for {file.CompressPath}: {e.Message}");
+                }
             }
         }
 
-        private static async Task WaitForUploadToFinish(IPage page)
+        /// <summary>True when the progress indicator appeared and then went away.</summary>
+        private static async Task<bool> WaitForUploadToFinish(IPage page)
         {
-            ILocator uploadProgress = page.Locator("[aria-live='polite'] [data-progressvalue]");
-            await uploadProgress.First.WaitForAsync();
-            await uploadProgress.First.WaitForAsync(new()
+            ILocator uploadProgress = page.Locator(Selectors.UPLOAD_PROGRESS).First;
+
+            try
             {
-                State = WaitForSelectorState.Detached
+                await uploadProgress.WaitForAsync(new() { Timeout = PROGRESS_APPEAR_TIMEOUT_MS });
+            }
+            catch (TimeoutException)
+            {
+                return false;
+            }
+
+            await uploadProgress.WaitForAsync(new()
+            {
+                State = WaitForSelectorState.Detached,
+                Timeout = UPLOAD_TIMEOUT_MS,
             });
+            return true;
         }
     }
 }

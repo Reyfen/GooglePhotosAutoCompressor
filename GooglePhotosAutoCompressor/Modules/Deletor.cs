@@ -34,14 +34,14 @@ namespace GooglePhotosAutoCompressor.Modules
             ILocator deleteButton = await GetDeleteButton(page);
             await deleteButton.ClickAsync();
 
-            ILocator confirmButton = page.Locator("[data-mdc-dialog-button-default]");
+            ILocator confirmButton = page.Locator(Selectors.DIALOG_DEFAULT_BUTTON);
             await confirmButton.ClickAsync();
             await confirmButton.WaitForAsync(new() { State = WaitForSelectorState.Hidden });
 
             foreach (FileItem item in selected)
             {
-                // A tile still on the page after the dialog closed was not moved to the bin.
-                if (await page.Locator($"[data-media-key='{item.MediaKey}']").CountAsync() > 0)
+                // A tile still on the page a while after the dialog closed was not moved to the bin.
+                if (await WaitUntilGone(page.Locator(Selectors.TileByMediaKey(item.MediaKey)), 15_000) == false)
                 {
                     Console.WriteLine($"Deletor: still present after delete, will retry next run: {item.MediaKey}");
                     continue;
@@ -71,9 +71,26 @@ namespace GooglePhotosAutoCompressor.Modules
             }
         }
 
+        private static async Task<bool> WaitUntilGone(ILocator locator, int timeoutMs)
+        {
+            DateTime deadline = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+
+            while (await locator.CountAsync() > 0)
+            {
+                if (DateTime.UtcNow > deadline)
+                {
+                    return false;
+                }
+
+                await Task.Delay(250);
+            }
+
+            return true;
+        }
+
         private static async Task<ILocator> GetDeleteButton(IPage page)
         {
-            ILocator deleteButtons = page.Locator("[aria-label='Move to bin']");
+            ILocator deleteButtons = page.Locator(Selectors.MOVE_TO_BIN_BUTTON);
             int count = await deleteButtons.CountAsync();
 
             for (int i = 0; i < count; i++)
