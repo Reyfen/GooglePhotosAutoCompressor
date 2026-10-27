@@ -29,6 +29,13 @@ namespace GooglePhotosAutoCompressor
         /// Compressed file name. This name is what Google Photos shows after upload,
         /// and the date setter finds items by it, so it must be unique per media key.
         /// </summary>
+        /// <summary>True for files this app produced (old "x_compressed.mp4" and new "x_compressed_1a2b3c4d.mp4").</summary>
+        public static bool IsCompressedName(string fileName)
+        {
+            return System.Text.RegularExpressions.Regex.IsMatch(
+                Path.GetFileNameWithoutExtension(fileName), "_compressed(_[0-9a-f]{8})?$");
+        }
+
         public static string CompressPath(string compressDir, string mediaKey, string downloadPath)
         {
             string name = Path.GetFileNameWithoutExtension(downloadPath);

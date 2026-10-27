@@ -1,4 +1,4 @@
-﻿using Microsoft.Playwright;
+using Microsoft.Playwright;
 
 namespace GooglePhotosAutoCompressor.Modules
 {
@@ -16,6 +16,12 @@ namespace GooglePhotosAutoCompressor.Modules
             using CancellationTokenSource cts = new();
             int filesToFinishProcessing = itemsData.Items.Count(ItemRules.IsInProgress);
 
+            // Our own uploaded copies show up in the list too; never compress them again.
+            HashSet<string> ownCopies = itemsData.Items
+                .Select(i => i.UploadedMediaKey)
+                .OfType<string>()
+                .ToHashSet();
+
             if (filesToFinishProcessing >= Const.TOTAL_FILES_TO_PROCESS_IN_ONE_BATCH)
             {
                 return itemsData;
@@ -29,6 +35,11 @@ namespace GooglePhotosAutoCompressor.Modules
 
             async Task HandleFileItem(ILocator tile, FileItem item)
             {
+                if (ownCopies.Contains(item.MediaKey))
+                {
+                    return;
+                }
+
                 item = itemsData.AddOrGet(item);
                 itemsData.Save();
 
@@ -48,13 +59,57 @@ namespace GooglePhotosAutoCompressor.Modules
                 item.CompressPath = null;
                 itemsData.Save();
 
-                await tile.ClickAsync();
-                await Task.Delay(100);
+                IDownload? download;
+                string path;
 
                 await semaphore.WaitAsync();
-                (IDownload? download, string path) = await GetFileDownloader(page, item.MediaKey);
+                try
+                {
+                    await tile.ClickAsync();
+                    await Task.Delay(100);
+                    (download, path) = await GetFileDownloader(page, item.MediaKey);
+                }
+                catch (Exception e) when (e is PlaywrightException or TimeoutException or InvalidOperationException)
+                {
+                    semaphore.Release();
+                    item.FailCount++;
+                    itemsData.Save();
+                    Console.WriteLine($"Downloader: could not start download for {item.MediaKey}: {e.Message}");
+                    return;
+                }
 
-                Task downloadTask = Task.Run(async () =>
+                string fileName = Path.GetFileName(path);
+
+                if (fileName.EndsWith(".zip", StringComparison.OrdinalIgnoreCase))
+                {
+                    // Several tiles were selected at once, so Google sent a zip. Selection is out of sync; stop.
+                    semaphore.Release();
+                    if (download != null)
+                    {
+                        await download.CancelAsync();
+                    }
+
+                    cts.Cancel();
+                    Console.WriteLine("Downloader: got a zip (several items selected); stopping the scan for this run.");
+                    return;
+                }
+
+                if (FilePaths.IsCompressedName(fileName))
+                {
+                    // A copy this app uploaded before it recorded media keys. Leave it alone.
+                    semaphore.Release();
+                    if (download != null)
+                    {
+                        await download.CancelAsync();
+                    }
+
+                    item.CompressionSkipped = true;
+                    itemsData.Save();
+                    Console.WriteLine($"Downloader: skipped own copy {fileName}");
+                    return;
+                }
+
+                downloadTasks.Add(Task.Run(async () =>
                 {
                     try
                     {
@@ -77,16 +132,16 @@ namespace GooglePhotosAutoCompressor.Modules
                     }
                     catch (Exception e)
                     {
-                        Console.WriteLine(e);
-                        throw;
+                        // One failed download must not stop the others.
+                        item.FailCount++;
+                        itemsData.Save();
+                        Console.WriteLine($"Downloader: failed {path}: {e.Message}");
                     }
                     finally
                     {
                         semaphore.Release();
                     }
-
-                });
-                downloadTasks.Add(downloadTask);
+                }));
 
                 await Task.Delay(100);
             }

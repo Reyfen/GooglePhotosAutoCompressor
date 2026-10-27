@@ -28,6 +28,22 @@ namespace GooglePhotosAutoCompressor.Tests
             Assert.Equal(Path.Combine("dl", FilePaths.ShortId("k"), "evil.mp4"), path);
         }
 
+        [Theory]
+        [InlineData("PXL_20251004_135511890_compressed.mp4", true)]
+        [InlineData("IMG_0001_compressed_1a2b3c4d.MOV", true)]
+        [InlineData("PXL_20251004_135511890.mp4", false)]
+        [InlineData("my_compressed_holiday.mp4", false)]
+        public void Recognises_own_compressed_files(string name, bool expected)
+        {
+            Assert.Equal(expected, FilePaths.IsCompressedName(name));
+        }
+
+        [Fact]
+        public void Compressed_name_is_recognised_as_own()
+        {
+            Assert.True(FilePaths.IsCompressedName(FilePaths.CompressPath("c", "k", "IMG_0001.MOV")));
+        }
+
         [Fact]
         public void Same_file_name_from_two_items_gets_two_compressed_names()
         {
