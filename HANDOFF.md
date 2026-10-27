@@ -19,7 +19,7 @@ Robustness pass in progress. Each item below is its own commit.
 | 10 | Large-files scan: detect end of list | done |
 | 11 | Downloader: one failure does not stop the run, zip guard | done |
 | 12 | Skip our own compressed uploads (no double compression) | done (same commit as 11) |
-| 13 | Linux support | todo |
+| 13 | Linux support | done (Linux test run: see below) |
 | 14 | Prompted ffmpeg download | todo |
 | 15 | CI + README | todo |
 

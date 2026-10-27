@@ -54,6 +54,7 @@ namespace GooglePhotosAutoCompressor
         {
             lock (_lock)
             {
+                Directory.CreateDirectory(Path.GetDirectoryName(Path.GetFullPath(_path))!);
                 string json = JsonConvert.SerializeObject(Items.ToArray(), Formatting.Indented);
                 string tempPath = _path + ".tmp";
                 File.WriteAllText(tempPath, json);

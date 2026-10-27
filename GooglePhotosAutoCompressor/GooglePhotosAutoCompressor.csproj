@@ -11,7 +11,8 @@
     <None Remove="tools\ffmpeg.exe" />
   </ItemGroup>
 
-  <ItemGroup>
+  <!-- Bundled Windows ffmpeg. On Linux the app uses ffmpeg from PATH or offers to download it. -->
+  <ItemGroup Condition="'$(OS)' == 'Windows_NT'">
     <Content Include="tools\ffmpeg.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </Content>
