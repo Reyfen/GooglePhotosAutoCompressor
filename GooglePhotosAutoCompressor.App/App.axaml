@@ -1,0 +1,85 @@
+<Application xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             x:Class="GooglePhotosAutoCompressor.App.App"
+             RequestedThemeVariant="Default">
+  <!-- "Default" follows the system light/dark setting. -->
+
+  <Application.Resources>
+    <ResourceDictionary>
+      <ResourceDictionary.ThemeDictionaries>
+        <ResourceDictionary x:Key="Light">
+          <SolidColorBrush x:Key="PageBrush">#F3F5F9</SolidColorBrush>
+          <SolidColorBrush x:Key="CardBrush">#FFFFFF</SolidColorBrush>
+          <SolidColorBrush x:Key="CardBorderBrush">#E1E5EC</SolidColorBrush>
+          <SolidColorBrush x:Key="MutedBrush">#5F6B7A</SolidColorBrush>
+          <SolidColorBrush x:Key="StepPendingBrush">#D5DAE2</SolidColorBrush>
+          <SolidColorBrush x:Key="LogBrush">#F7F8FA</SolidColorBrush>
+        </ResourceDictionary>
+        <ResourceDictionary x:Key="Dark">
+          <SolidColorBrush x:Key="PageBrush">#17191D</SolidColorBrush>
+          <SolidColorBrush x:Key="CardBrush">#21242A</SolidColorBrush>
+          <SolidColorBrush x:Key="CardBorderBrush">#30343B</SolidColorBrush>
+          <SolidColorBrush x:Key="MutedBrush">#A0A8B4</SolidColorBrush>
+          <SolidColorBrush x:Key="StepPendingBrush">#3A3F47</SolidColorBrush>
+          <SolidColorBrush x:Key="LogBrush">#1B1D21</SolidColorBrush>
+        </ResourceDictionary>
+      </ResourceDictionary.ThemeDictionaries>
+      <SolidColorBrush x:Key="AccentBlue">#3B7DE9</SolidColorBrush>
+      <SolidColorBrush x:Key="DoneGreen">#1FA67A</SolidColorBrush>
+      <SolidColorBrush x:Key="WarnAmber">#D98E04</SolidColorBrush>
+      <SolidColorBrush x:Key="ErrorRed">#D64545</SolidColorBrush>
+    </ResourceDictionary>
+  </Application.Resources>
+
+  <Application.Styles>
+    <FluentTheme />
+
+    <Style Selector="Border.card">
+      <Setter Property="Background" Value="{DynamicResource CardBrush}" />
+      <Setter Property="BorderBrush" Value="{DynamicResource CardBorderBrush}" />
+      <Setter Property="BorderThickness" Value="1" />
+      <Setter Property="CornerRadius" Value="10" />
+      <Setter Property="Padding" Value="18" />
+    </Style>
+    <Style Selector="TextBlock.h2">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Margin" Value="0,0,0,10" />
+    </Style>
+    <Style Selector="TextBlock.muted">
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+    </Style>
+    <Style Selector="TextBlock.hint">
+      <Setter Property="Foreground" Value="{DynamicResource MutedBrush}" />
+      <Setter Property="FontSize" Value="12" />
+      <Setter Property="TextWrapping" Value="Wrap" />
+      <Setter Property="Margin" Value="0,2,0,0" />
+    </Style>
+    <Style Selector="TextBlock.statValue">
+      <Setter Property="FontSize" Value="22" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.primary">
+      <Setter Property="Background" Value="{DynamicResource AccentBlue}" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.primary:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#2F6BD0" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.danger">
+      <Setter Property="Background" Value="{DynamicResource ErrorRed}" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.danger:pointerover /template/ ContentPresenter">
+      <Setter Property="Background" Value="#B93737" />
+      <Setter Property="Foreground" Value="White" />
+    </Style>
+    <Style Selector="Button.big">
+      <Setter Property="FontSize" Value="16" />
+      <Setter Property="FontWeight" Value="SemiBold" />
+      <Setter Property="Padding" Value="28,10" />
+      <Setter Property="CornerRadius" Value="8" />
+    </Style>
+  </Application.Styles>
+</Application>

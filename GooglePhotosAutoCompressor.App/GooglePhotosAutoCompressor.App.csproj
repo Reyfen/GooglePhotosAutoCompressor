@@ -1,0 +1,42 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- The exe users see: GooglePhotosAutoCompressor(.exe). The core library is GooglePhotosAutoCompressor.Core. -->
+    <AssemblyName>GooglePhotosAutoCompressor</AssemblyName>
+    <RootNamespace>GooglePhotosAutoCompressor.App</RootNamespace>
+    <Product>Google Photos Auto Compressor</Product>
+    <Version>1.0.0</Version>
+    <ApplicationIcon>Assets\icon.ico</ApplicationIcon>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
+    <!-- No ICU needed (all parsing uses the invariant culture), so Linux builds run without libicu. -->
+    <InvariantGlobalization>true</InvariantGlobalization>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <AvaloniaResource Include="Assets\**" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Avalonia" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.22" />
+    <PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.22" />
+    <PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />
+    <!-- Direct reference so the Playwright driver (.playwright folder) is copied next to the exe. -->
+    <PackageReference Include="Microsoft.Playwright" Version="1.58.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="GooglePhotosAutoCompressor.UiTests" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\GooglePhotosAutoCompressor\GooglePhotosAutoCompressor.csproj" />
+  </ItemGroup>
+
+</Project>

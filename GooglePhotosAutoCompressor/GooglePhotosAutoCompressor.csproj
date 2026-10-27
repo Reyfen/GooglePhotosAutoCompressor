@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
     <OutputType>Library</OutputType>
@@ -24,6 +24,7 @@
   <ItemGroup>
     <InternalsVisibleTo Include="GooglePhotosAutoCompressor.Tests" />
     <InternalsVisibleTo Include="GooglePhotosAutoCompressor" />
+    <InternalsVisibleTo Include="GooglePhotosAutoCompressor.UiTests" />
   </ItemGroup>
 
   <ItemGroup>
