@@ -55,7 +55,7 @@ namespace GooglePhotosAutoCompressor.Modules
                 await Task.Delay(100);
 
                 await semaphore.WaitAsync();
-                (IDownload download, string path) = await GetFileDownloader(page);
+                (IDownload? download, string path) = await GetFileDownloader(page, item.MediaKey);
 
                 Task downloadTask = Task.Run(async () =>
                 {
@@ -70,7 +70,10 @@ namespace GooglePhotosAutoCompressor.Modules
                         }
 
                         Console.WriteLine($"start: {path}");
-                        await download.SaveAsAsync(path);
+                        // Save under a temp name so a crash never leaves a half file that looks finished.
+                        string partPath = path + ".part";
+                        await download.SaveAsAsync(partPath);
+                        File.Move(partPath, path, true);
                         item.DownloadPath = path;
                         itemsData.Save();
                         Console.WriteLine($"ready: {path}");
@@ -119,20 +122,14 @@ namespace GooglePhotosAutoCompressor.Modules
             return true;
         }
 
-        private static async Task<(IDownload download, string path)> GetFileDownloader(IPage page)
+        private static async Task<(IDownload? download, string path)> GetFileDownloader(IPage page, string mediaKey)
         {
             ILocator downloadButton = await GetDownloadButton(page);
 
-            await downloadButton.ClickAsync();
-
-            IDownload download = await page.WaitForDownloadAsync();
-            string directory = Path.Combine(Const.DOWNLOADS_PATH, "GooglePhotosDownloadCache");
-            string path = Path.Combine(directory, download.SuggestedFilename);
-
-            if (Directory.Exists(directory) == false)
-            {
-                Directory.CreateDirectory(directory);
-            }
+            // Start waiting before the click so a fast download event is not missed.
+            IDownload download = await page.RunAndWaitForDownloadAsync(() => downloadButton.ClickAsync());
+            string path = FilePaths.DownloadPath(FilePaths.DOWNLOAD_DIR, mediaKey, download.SuggestedFilename);
+            Directory.CreateDirectory(Path.GetDirectoryName(path)!);
 
             if (File.Exists(path))
             {

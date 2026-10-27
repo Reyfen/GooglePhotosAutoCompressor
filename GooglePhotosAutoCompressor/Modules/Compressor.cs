@@ -8,7 +8,7 @@ namespace GooglePhotosAutoCompressor.Modules
 
         public static async Task CompressFiles(FileItemsData filesData)
         {
-            string directory = Path.Combine(Const.DOWNLOADS_PATH, "GooglePhotosCompressCache");
+            string directory = FilePaths.COMPRESS_DIR;
 
             Console.WriteLine("\n===\nCompressFiles\n===\n");
 
@@ -37,7 +37,7 @@ namespace GooglePhotosAutoCompressor.Modules
                 file.CompressPath = null;
                 filesData.Save();
 
-                string path = Path.Combine(directory, Path.GetFileNameWithoutExtension(file.DownloadPath) + "_compressed" + Path.GetExtension(file.DownloadPath));
+                string path = FilePaths.CompressPath(directory, file.MediaKey, file.DownloadPath);
 
                 if (File.Exists(path))
                 {
