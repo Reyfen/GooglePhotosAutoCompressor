@@ -4,7 +4,7 @@ Read `HANDOFF.md` first: it holds current status, open work and known gotchas. U
 
 ## What this is
 .NET 8 console app (Windows + Linux, desktop only – no web/WASM version planned). It drives a real Chrome window with Playwright to:
-download large videos from Google Photos → compress them with ffmpeg → move originals to the bin → upload the compressed copies → fix their "date taken".
+download large videos and photos from Google Photos → compress them (ffmpeg for video, Magick.NET for JPEG) → move originals to the bin → upload the compressed copies → fix their "date taken".
 
 Pipeline lives in `GooglePhotosAutoCompressor/Program.cs`, one class per step in `Modules/`.
 Per-item progress is stored in `~/Downloads/GooglePhotosCache.json` so runs can resume.

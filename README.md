@@ -3,12 +3,15 @@ Utility to reduce video files size on your google photo, so you don't need to pa
 
 It drives a normal Chrome window (via Playwright) on your own Google Photos account:
 
-1. **Download** large videos from *Storage → Large files* (only ones above 0.8 MB per second of video).
-2. **Compress** them with ffmpeg: half resolution, H.264 CRF 20, audio and metadata kept.
-3. **Check** each copy: same length as the original and at least 10% smaller. Otherwise the original is left alone.
+1. **Download** large items from *Storage → Large files*: videos above 0.8 MB per second, and photos above 2 MB.
+2. **Compress** them:
+   - Videos with ffmpeg: half resolution, H.264 CRF 20, audio and metadata kept.
+   - JPEG photos with Magick.NET: at most 16 MP, quality 85. EXIF data (date taken, location, camera, orientation) and the colour profile are kept.
+   - HEIC, PNG and photos without a date taken are left alone.
+3. **Check** each copy. A video must be as long as the original; a photo must keep its proportions, orientation and date taken. Both must be at least 10% smaller. Otherwise the original is left alone.
 4. **Move originals to the bin.** This happens before upload on purpose, so it works when storage is full. Google keeps the bin for 60 days.
 5. **Upload** the compressed copies.
-6. **Set the date** of each copy back to the original date.
+6. **Set the date** of each video copy back to the original date. Photo copies already carry their date taken, so they skip this step.
 
 Progress is saved to `~/Downloads/GooglePhotosCache.json` after every step, so you can stop and re-run at any time. Each run handles up to 10 videos (`Const.TOTAL_FILES_TO_PROCESS_IN_ONE_BATCH`).
 

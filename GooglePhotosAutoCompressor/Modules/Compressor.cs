@@ -57,6 +57,12 @@
         /// </summary>
         internal static CompressResult CompressOne(Ffmpeg ffmpeg, FileItem file, string compressDir)
         {
+            // The downloaded file decides, not the tile: a video tile whose duration had not loaded looks like a photo.
+            if (PhotoCompressor.IsSupported(file.DownloadPath) || (File.Exists(file.DownloadPath) == false && PhotoCompressor.IsSupported(file.CompressPath)))
+            {
+                return PhotoCompressor.CompressOne(file, compressDir);
+            }
+
             bool hasSource = File.Exists(file.DownloadPath);
 
             // A copy from an earlier run (possibly an older version of this app): check it first.

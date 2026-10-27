@@ -7,6 +7,11 @@ namespace GooglePhotosAutoCompressor
     {
         public static bool IsCompressionReasonable(FileItem item)
         {
+            if (item.MediaType == MediaType.Image)
+            {
+                return item.Size >= Const.MIN_PHOTO_SIZE_TO_COMPRESS;
+            }
+
             if (item.Duration <= TimeSpan.Zero)
             {
                 return false;
@@ -71,10 +76,13 @@ namespace GooglePhotosAutoCompressor
             return item.OriginalDeleted && item.CompressUploaded == false && item.Verified && FileExists(item.CompressPath);
         }
 
-        /// <summary>Copy is (probably) in Google Photos and still needs its date fixed.</summary>
+        /// <summary>
+        /// Copy is (probably) in Google Photos and still needs its date fixed.
+        /// Photo copies carry their EXIF date taken, so they never need it.
+        /// </summary>
         public static bool NeedsDateSet(FileItem item)
         {
-            return item.OriginalDeleted && item.DateSet == false && (item.CompressUploaded || item.Verified)
+            return item.OriginalDeleted && PhotoCompressor.IsSupported(item.CompressPath) == false && item.DateSet == false && (item.CompressUploaded || item.Verified)
                    && string.IsNullOrEmpty(item.CompressPath) == false;
         }
 

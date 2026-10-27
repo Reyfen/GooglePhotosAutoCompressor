@@ -35,6 +35,73 @@ namespace GooglePhotosAutoCompressor.Tests
             Assert.False(ItemRules.IsCompressionReasonable(Video(seconds: 0)));
         }
 
+        private static FileItem Photo(double mb) => new()
+        {
+            MediaType = MediaType.Image,
+            MediaKey = Guid.NewGuid().ToString(),
+            Size = (long)(mb * 1024 * 1024),
+        };
+
+        [Theory]
+        [InlineData(1.0, false)]
+        [InlineData(2.0, true)]
+        [InlineData(12.0, true)]
+        public void Photo_compression_threshold_is_by_size(double mb, bool expected)
+        {
+            Assert.Equal(expected, ItemRules.IsCompressionReasonable(Photo(mb)));
+        }
+
+        [Fact]
+        public void New_photo_needs_download_and_counts_in_batch()
+        {
+            FileItem photo = Photo(5);
+
+            Assert.True(ItemRules.NeedsDownload(photo));
+            Assert.True(ItemRules.IsInProgress(photo));
+        }
+
+        [Fact]
+        public void Photo_copy_never_needs_the_date_step()
+        {
+            // EXIF date taken is kept, so Google places the copy at the right date by itself.
+            FileItem photo = Photo(5);
+            photo.OriginalDeleted = true;
+            photo.Verified = true;
+            photo.CompressUploaded = true;
+            photo.CompressPath = ExistingFile("p_compressed_1234abcd.jpg");
+
+            Assert.False(ItemRules.NeedsDateSet(photo));
+        }
+
+        [Fact]
+        public void Photo_with_date_set_at_upload_is_finished()
+        {
+            FileItem photo = Photo(5);
+            photo.OriginalDeleted = true;
+            photo.CompressUploaded = true;
+            photo.DateSet = true; // what the upload step sets for photo copies
+
+            Assert.False(ItemRules.IsInProgress(photo));
+            Assert.False(ItemRules.NeedsDownload(photo));
+        }
+
+        [Fact]
+        public void Same_data_safety_rules_apply_to_photos()
+        {
+            FileItem photo = Photo(5);
+            photo.CompressPath = ExistingFile("p_compressed_1234abcd.jpg");
+
+            Assert.False(ItemRules.CanDeleteOriginal(photo)); // not verified yet
+            Assert.False(ItemRules.CanUpload(photo));
+
+            photo.Verified = true;
+            Assert.True(ItemRules.CanDeleteOriginal(photo));
+            Assert.False(ItemRules.CanUpload(photo)); // original not binned yet
+
+            photo.OriginalDeleted = true;
+            Assert.True(ItemRules.CanUpload(photo));
+        }
+
         [Fact]
         public void New_item_needs_download()
         {

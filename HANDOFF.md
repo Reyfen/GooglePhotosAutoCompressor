@@ -22,6 +22,7 @@ Robustness pass finished: one commit per fix (`git log dev..fix/robustness`).
 | 13 | Linux: Chromium fallback, profile location, sign-in without timeout | `Modules/Initlizer.cs` |
 | 14 | Prompted ffmpeg download with SHA-256 check | `FfmpegInstaller.cs` |
 | 15 | CI (Windows + Linux), README, LFS pointer guard | `.github/workflows/ci.yml` |
+| 17 | Photo compression (merged `feature/photo_processing`): JPEG via Magick.NET, EXIF kept, no date step | `PhotoCompressor.cs`, `TileParser.cs`, `ItemRules.cs` |
 | 16 | Live Google Photos page tests per step, checked by local Claude Code (screenshot verdict + failure diagnosis) | `Tests/Live/`, `Tests/ClaudeCode.cs` |
 
 ## Live page tests (`Tests/Live`, trait `Category=Live`)
@@ -32,6 +33,22 @@ Robustness pass finished: one commit per fix (`git log dev..fix/robustness`).
 - Must stay read-only. The download is cancelled, dialogs are closed with Escape, and the bin dialog test is opt-in only.
 - Not covered (can't be done read-only): the upload progress indicator (`UPLOAD_PROGRESS`), saving a date, confirming a delete.
 - Verified 2026-10-27: build and skip messages OK. The owner's saved profile is **signed out** (lands on google.com/photos/about), so all live tests skipped. The failure path was forced once on that page: Claude Code correctly said it was the signed-out landing page. **No live test has passed yet.** It needs the owner to sign in (`GPAC_TEST_SIGN_IN=1`).
+
+## Photos (`PhotoCompressor.cs`)
+- `feature/photo_processing` was merged into this branch (5023dc4). Taken over:
+  - a tile without a duration is a photo (`MediaType.Image`)
+  - a tile whose size can't be read is skipped
+  - the compress step prints a summary at the end
+- Not taken over:
+  - the `FileItem` constructor, whose misspelt `duraion` parameter would break loading old state files
+  - the debug `Console.ReadLine`
+  - the batch size of 50 (it stays at 10)
+- The downloaded file's type decides how an item is compressed, not the tile: a video tile whose duration hasn't loaded yet looks like a photo. `.jpg`/`.jpeg` go to `PhotoCompressor`; other photo types are skipped.
+- JPEG: at most 16 MP (`Const.MAX_PHOTO_PIXELS`), quality 85. EXIF, ICC and XMP are kept. A photo without an EXIF date taken is skipped, because Google would place the copy at the upload date.
+- Check: the copy opens, and proportions (within 1%), orientation and date taken are unchanged. Size must be ≤ 90%, as for videos.
+- No date step for photos: the upload step sets `DateSet` for JPEG copies. Google places them by EXIF date, not at the top of the library, so the date step would not find them anyway. Photo copies don't record `UploadedMediaKey`. The `_compressed` name check in the download step still stops them being compressed twice.
+- ffprobe was considered (owner's question): it can read photo tags, but ffmpeg can't write EXIF into JPEGs, so Magick.NET is used. ffprobe for reading video duration would be a small, separate improvement.
+- Verified: unit tests on Windows (111 passed) and on Linux in WSL Ubuntu 24.04 (72 photo/rule/parser/state tests passed). Not tested on real phone photos or live.
 
 ## Item lifecycle (see `ItemRules.cs`)
 Listed → Downloaded (`DownloadPath`) → Compressed + `Verified` → `OriginalDeleted` → `CompressUploaded` → `DateSet` (+ `UploadedMediaKey`).

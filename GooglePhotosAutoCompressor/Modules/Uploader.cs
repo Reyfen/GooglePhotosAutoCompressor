@@ -39,6 +39,8 @@ namespace GooglePhotosAutoCompressor.Modules
                     }
 
                     file.CompressUploaded = true;
+                    // Photo copies keep their EXIF date taken (checked when compressed), so the date step is not needed.
+                    file.DateSet |= PhotoCompressor.IsSupported(file.CompressPath);
                     files.Save();
                     Console.WriteLine($"Uploader: uploaded {file.CompressPath}");
                 }
