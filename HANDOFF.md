@@ -22,6 +22,13 @@ Robustness pass finished: one commit per fix (`git log dev..fix/robustness`).
 | 13 | Linux: Chromium fallback, profile location, sign-in without timeout | `Modules/Initlizer.cs` |
 | 14 | Prompted ffmpeg download with SHA-256 check | `FfmpegInstaller.cs` |
 | 15 | CI (Windows + Linux), README, LFS pointer guard | `.github/workflows/ci.yml` |
+| 16 | AI image tests: local Claude Code compares original vs compressed frames, plus 2 control tests | `Tests/ClaudeCode.cs`, `Tests/CompressorVisionTests.cs` |
+
+## AI image tests
+- `ClaudeCode` runs `claude -p --output-format json --tools Read` in a temp folder that holds only the two PNGs, and parses a `{same_scene, corrupted, reason}` reply.
+- Missing CLI → skip, with an install message (shown because the test project sets console verbosity to normal). Installed but the call fails → test fails, with a sign-in hint.
+- Trait `Category=AI`. CI has no Claude Code, so these skip there.
+- Verified 2026-10-27 on Windows with Claude Code 2.1.299 and `sonnet`: 4/4 passed in 35 s. The not-installed and not-signed-in paths were checked with a fake path and a fake `claude.cmd`.
 
 ## Item lifecycle (see `ItemRules.cs`)
 Listed → Downloaded (`DownloadPath`) → Compressed + `Verified` → `OriginalDeleted` → `CompressUploaded` → `DateSet` (+ `UploadedMediaKey`).
@@ -56,5 +63,5 @@ Side exits: `CompressionSkipped` (not worth it / unsupported / own copy) and `Fa
 - Photo compression. The owner started `feature/photo_processing` (adds `MediaType`). It conflicts with the `FileItem`/`LargeFileLocator` changes here, so merge it by hand: photo tiles currently fail `TileParser.Parse` (no duration).
 - Delete local downloads after a successful upload, to save disk space.
 - Read item data from Google's `batchexecute` network responses instead of page text.
-- Saved-page snapshot tests for selectors; a live smoke test on a test account; a vision-model fallback when a selector fails.
+- Saved-page snapshot tests for selectors; a live smoke test on a test account; a vision-model fallback when a selector fails (could reuse `Tests/ClaudeCode.cs`).
 - A GitHub release workflow that builds single-file apps for Windows and Linux.

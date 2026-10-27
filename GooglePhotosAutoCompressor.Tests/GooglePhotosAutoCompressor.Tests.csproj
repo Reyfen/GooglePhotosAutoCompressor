@@ -7,6 +7,8 @@
 
     <IsPackable>false</IsPackable>
     <IsTestProject>true</IsTestProject>
+    <!-- Normal verbosity prints skip reasons, e.g. what to install for the AI image tests. -->
+    <VSTestLogger>console%3Bverbosity=normal</VSTestLogger>
   </PropertyGroup>
 
   <ItemGroup>

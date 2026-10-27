@@ -35,6 +35,15 @@ dotnet test
 ```
 Tests that need ffmpeg skip themselves when it is not installed. The real ffmpeg download test runs only with `GPAC_TEST_FFMPEG_DOWNLOAD=1`.
 
+### AI image tests
+`CompressorVisionTests` compresses generated clips and asks your local [Claude Code](https://claude.com/claude-code) CLI to look at a frame from the original and from the compressed copy: is it the same picture, and is it damaged (blocks, smearing, wrong colours, rotated or stretched)? Two control tests check that it does catch a damaged frame and a different picture.
+
+- They need `claude` installed and signed in. If it is missing, the tests are skipped and the test output says what to install.
+- If it is installed but not signed in, they fail and say to sign in.
+- They take about 10 s each and use your Claude plan or API credit (a few cents per run).
+- Skip them with `dotnet test --filter "Category!=AI"`.
+- Settings: `GPAC_TEST_CLAUDE_MODEL` (default `sonnet`), `GPAC_TEST_CLAUDE_PATH` (path to `claude` if it is not on PATH).
+
 ## Caveats
 - It works by clicking through the Google Photos website, so a change to that site can break it. All selectors are in `GooglePhotosAutoCompressor/Selectors.cs`.
 - Automating the Google Photos website may be against Google's terms of service. Use it on your own account, at your own risk.
