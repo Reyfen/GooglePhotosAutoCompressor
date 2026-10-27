@@ -6,27 +6,27 @@ namespace GooglePhotosAutoCompressor.Tests
         [Fact]
         public void Parses_plain_json_reply()
         {
-            FrameVerdict v = ClaudeCode.ParseVerdict("""{"same_scene": true, "corrupted": false, "reason": "Same test card."}""");
-            Assert.Equal(new FrameVerdict(true, false, "Same test card."), v);
+            ScreenVerdict v = ClaudeCode.ParseVerdict("""{"ok": true, "reason": "Large files page with a grid of videos."}""");
+            Assert.Equal(new ScreenVerdict(true, "Large files page with a grid of videos."), v);
         }
 
         [Fact]
         public void Parses_json_inside_extra_text()
         {
-            FrameVerdict v = ClaudeCode.ParseVerdict("""
+            ScreenVerdict v = ClaudeCode.ParseVerdict("""
                 Here is my answer:
                 ```json
-                {"same_scene": false, "corrupted": true, "reason": "Green block top left."}
+                {"ok": false, "reason": "A cookie banner covers the page."}
                 ```
                 """);
-            Assert.False(v.SameScene);
-            Assert.True(v.Corrupted);
+            Assert.False(v.Ok);
+            Assert.Equal("A cookie banner covers the page.", v.Reason);
         }
 
         [Fact]
         public void Reply_without_verdict_throws()
         {
-            Assert.Throws<FormatException>(() => ClaudeCode.ParseVerdict("I could not open the files."));
+            Assert.Throws<FormatException>(() => ClaudeCode.ParseVerdict("I could not open the file."));
         }
 
         [Fact]

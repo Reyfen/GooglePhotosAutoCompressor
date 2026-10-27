@@ -4,8 +4,8 @@ using Newtonsoft.Json.Linq;
 
 namespace GooglePhotosAutoCompressor.Tests
 {
-    /// <summary>What Claude Code said about two pictures.</summary>
-    public sealed record FrameVerdict(bool SameScene, bool Corrupted, string Reason);
+    /// <summary>Claude Code's answer to a yes/no question about a screenshot.</summary>
+    public sealed record ScreenVerdict(bool Ok, string Reason);
 
     /// <summary>
     /// Runs the local Claude Code CLI (<c>claude -p</c>) to look at images.
@@ -14,7 +14,7 @@ namespace GooglePhotosAutoCompressor.Tests
     public static class ClaudeCode
     {
         public const string MISSING_MESSAGE =
-            "AI image test skipped: Claude Code CLI ('claude') was not found " +
+            "AI page test skipped: Claude Code CLI ('claude') was not found " +
             "(searched PATH, ~/.local/bin and the npm folder, or GPAC_TEST_CLAUDE_PATH if set). " +
             "To run it: 1) install Claude Code (https://claude.com/claude-code), for example " +
             "'npm install -g @anthropic-ai/claude-code' (needs Node.js 18+); " +
@@ -54,41 +54,54 @@ namespace GooglePhotosAutoCompressor.Tests
             return null;
         }
 
+        /// <summary>Asks a yes/no question about a screenshot of the Google Photos website.</summary>
+        public static ScreenVerdict CheckScreenshot(string screenshot, string question)
+        {
+            string reply = AskAboutScreenshot(screenshot, $$"""
+                Use the Read tool to look at screenshot.png in the current folder. It is a screenshot of the
+                Google Photos website (photos.google.com, UI language English UK), taken by an automated test
+                of a tool that clicks through that website.
+
+                Question: {{question}}
+
+                Judge only what is visible. Reply with only one line of JSON and nothing else:
+                {"ok": true or false, "reason": "one short sentence about what you see"}
+                """);
+            return ParseVerdict(reply);
+        }
+
         /// <summary>
-        /// Asks Claude Code to compare <paramref name="original"/> and <paramref name="candidate"/>.
-        /// Both images are copied into a fresh folder, which is the only place Claude Code may read.
+        /// Used when a selector or click failed: asks Claude Code what the page shows instead,
+        /// so the test failure says what changed on Google's side.
         /// </summary>
-        public static FrameVerdict CompareFrames(string original, string candidate)
+        public static string DescribeProblem(string screenshot, string expected)
+        {
+            return AskAboutScreenshot(screenshot, $"""
+                Use the Read tool to look at screenshot.png in the current folder. It is a screenshot of the
+                Google Photos website (photos.google.com, UI language English UK), taken by an automated test.
+                The test expected this, but could not find it or the click did not work: {expected}
+
+                In at most 4 short sentences: what does the page show? Is the expected control visible at all,
+                and if so where is it and what is its visible label or icon? Is anything (a dialog, a banner,
+                a sign-in page, an error) in the way?
+                """).Trim();
+        }
+
+        private static string AskAboutScreenshot(string screenshot, string prompt)
         {
             string exe = ExecutablePath ?? throw new InvalidOperationException(MISSING_MESSAGE);
             string dir = Directory.CreateTempSubdirectory("gpac-claude-").FullName;
             try
             {
-                File.Copy(original, Path.Combine(dir, "original.png"));
-                File.Copy(candidate, Path.Combine(dir, "candidate.png"));
-                string reply = Ask(exe, dir, PROMPT);
-                return ParseVerdict(reply);
+                // Claude Code only gets this folder, holding only the screenshot.
+                File.Copy(screenshot, Path.Combine(dir, "screenshot.png"));
+                return Ask(exe, dir, prompt);
             }
             finally
             {
                 try { Directory.Delete(dir, true); } catch (IOException) { }
             }
         }
-
-        private const string PROMPT = """
-            Use the Read tool to look at two images in the current folder: original.png and candidate.png.
-            original.png is a frame from an original video. candidate.png should be the same frame taken from a
-            re-encoded copy of that video at half resolution.
-
-            Decide:
-            - same_scene: true if candidate.png shows the same picture as original.png (same content, layout and orientation).
-            - corrupted: true if candidate.png has damage that a viewer would notice: coloured or grey blocks, smearing,
-              missing areas, a black or blank frame, wrong colours, or a picture that is rotated, mirrored or stretched
-              compared to original.png. Lower resolution and slightly softer detail are expected and are NOT corruption.
-
-            Reply with only one line of JSON and nothing else:
-            {"same_scene": true or false, "corrupted": true or false, "reason": "one short sentence"}
-            """;
 
         private static string Ask(string exe, string workDir, string prompt)
         {
@@ -139,16 +152,13 @@ namespace GooglePhotosAutoCompressor.Tests
         }
 
         /// <summary>Pulls the verdict JSON out of Claude's reply, even if it added text around it.</summary>
-        public static FrameVerdict ParseVerdict(string reply)
+        public static ScreenVerdict ParseVerdict(string reply)
         {
-            Match m = Regex.Match(reply, @"\{[^{}]*""same_scene""[^{}]*\}", RegexOptions.Singleline);
+            Match m = Regex.Match(reply, @"\{[^{}]*""ok""[^{}]*\}", RegexOptions.Singleline);
             if (!m.Success)
                 throw new FormatException($"Claude Code reply had no verdict JSON: {reply}");
             JObject o = JObject.Parse(m.Value);
-            return new FrameVerdict(
-                o.Value<bool>("same_scene"),
-                o.Value<bool>("corrupted"),
-                o.Value<string>("reason") ?? "");
+            return new ScreenVerdict(o.Value<bool>("ok"), o.Value<string>("reason") ?? "");
         }
     }
 }

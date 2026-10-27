@@ -35,14 +35,28 @@ dotnet test
 ```
 Tests that need ffmpeg skip themselves when it is not installed. The real ffmpeg download test runs only with `GPAC_TEST_FFMPEG_DOWNLOAD=1`.
 
-### AI image tests
-`CompressorVisionTests` compresses generated clips and asks your local [Claude Code](https://claude.com/claude-code) CLI to look at a frame from the original and from the compressed copy: is it the same picture, and is it damaged (blocks, smearing, wrong colours, rotated or stretched)? Two control tests check that it does catch a damaged frame and a different picture.
+### Live Google Photos page tests (AI checked)
+`GooglePhotosAutoCompressor.Tests/Live` opens the real Google Photos website with the app's signed-in browser profile and walks through what every step relies on. It uses the same selectors and clicks as the app:
 
-- They need `claude` installed and signed in. If it is missing, the tests are skipped and the test output says what to install.
-- If it is installed but not signed in, they fail and say to sign in.
-- They take about 10 s each and use your Claude plan or API credit (a few cents per run).
-- Skip them with `dotnet test --filter "Category!=AI"`.
-- Settings: `GPAC_TEST_CLAUDE_MODEL` (default `sonnet`), `GPAC_TEST_CLAUDE_PATH` (path to `claude` if it is not on PATH).
+| Test | Step it protects |
+|------|------------------|
+| Home page signed in, UI in English (UK) | all (selectors rely on English labels) |
+| Large files scan reads video tiles (size, date, length) | download, delete |
+| Clicking a tile selects it and shows Download and Move to bin | download, delete |
+| Download starts a single-file download (then cancelled) | download |
+| Create → Import from computer opens a file picker (no file given) | upload |
+| Viewer shows file name and date, "next" moves on | date |
+| Date dialog has year, month and day fields; Escape closes it unchanged | date |
+| Move to bin asks for confirmation (off unless `GPAC_TEST_LIVE_BIN_DIALOG=1`) | delete |
+
+After each check, your local [Claude Code](https://claude.com/claude-code) CLI looks at a screenshot and confirms the page looks right. When a selector or click fails, Claude Code describes what the page shows instead, so the failure tells you what Google changed. Screenshots are kept in `%TEMP%/gpac-live-screens` (`/tmp/gpac-live-screens` on Linux).
+
+- **Nothing in your account is changed:** no upload, no delete, no date saved.
+- **Needs:** Google Chrome, `claude` installed and signed in, and a signed-in profile. If something is missing, the tests are skipped and the output says what to do. To sign in during a test run, set `GPAC_TEST_SIGN_IN=1` and sign in within 5 minutes in the browser window the tests open.
+- **Privacy:** screenshots of your library (thumbnails, one opened item) are sent to Claude. A separate test Google account with a few videos is recommended. Point the tests at its profile with `GPAC_TEST_PROFILE_DIR`.
+- **Cost and time:** about 1–2 minutes and some Claude usage per run.
+- **Leave them out:** `dotnet test --filter "Category!=Live"`. To turn them off for every run, set `GPAC_TEST_LIVE=0`.
+- **Other settings:** `GPAC_TEST_CLAUDE_MODEL` (default `sonnet`), `GPAC_TEST_CLAUDE_PATH`, `GPAC_TEST_HEADLESS=1`.
 
 ## Caveats
 - It works by clicking through the Google Photos website, so a change to that site can break it. All selectors are in `GooglePhotosAutoCompressor/Selectors.cs`.

@@ -22,13 +22,16 @@ Robustness pass finished: one commit per fix (`git log dev..fix/robustness`).
 | 13 | Linux: Chromium fallback, profile location, sign-in without timeout | `Modules/Initlizer.cs` |
 | 14 | Prompted ffmpeg download with SHA-256 check | `FfmpegInstaller.cs` |
 | 15 | CI (Windows + Linux), README, LFS pointer guard | `.github/workflows/ci.yml` |
-| 16 | AI image tests: local Claude Code compares original vs compressed frames, plus 2 control tests | `Tests/ClaudeCode.cs`, `Tests/CompressorVisionTests.cs` |
+| 16 | Live Google Photos page tests per step, checked by local Claude Code (screenshot verdict + failure diagnosis) | `Tests/Live/`, `Tests/ClaudeCode.cs` |
 
-## AI image tests
-- `ClaudeCode` runs `claude -p --output-format json --tools Read` in a temp folder that holds only the two PNGs, and parses a `{same_scene, corrupted, reason}` reply.
-- Missing CLI → skip, with an install message (shown because the test project sets console verbosity to normal). Installed but the call fails → test fails, with a sign-in hint.
-- Trait `Category=AI`. CI has no Claude Code, so these skip there.
-- Verified 2026-10-27 on Windows with Claude Code 2.1.299 and `sonnet`: 4/4 passed in 35 s. The not-installed and not-signed-in paths were checked with a fake path and a fake `claude.cmd`.
+## Live page tests (`Tests/Live`, trait `Category=Live`)
+- The owner does not want ffmpeg covered by AI tests. These cover the Google Photos pages and clicks of each step instead.
+- `LivePhotosFixture` opens one Chrome with the app's profile and sets `SkipReason` with exact instructions when something is missing: Claude Code, a profile, a free profile lock, or a sign-in. Profile lookup order: `GPAC_TEST_PROFILE_DIR`, then `GooglePhotosAutoCompressor/bin/{Debug,Release}/net8.0/chrome-profile`, then LocalAppData.
+- Tests reuse the app's own code where possible (`LargeFileLocator.EnumearteFiles`, `Initlizer.Launch`, `DateSetter.WaitForAnyVisibleAsync`, `Selectors`).
+- `ExpectScreen` asks Claude Code a yes/no question about a screenshot. `Expect`/`Fail` wrap page actions; on failure Claude Code describes the page (`ClaudeCode.DescribeProblem`).
+- Must stay read-only. The download is cancelled, dialogs are closed with Escape, and the bin dialog test is opt-in only.
+- Not covered (can't be done read-only): the upload progress indicator (`UPLOAD_PROGRESS`), saving a date, confirming a delete.
+- Verified 2026-10-27: build and skip messages OK. The owner's saved profile is **signed out** (lands on google.com/photos/about), so all live tests skipped. The failure path was forced once on that page: Claude Code correctly said it was the signed-out landing page. **No live test has passed yet.** It needs the owner to sign in (`GPAC_TEST_SIGN_IN=1`).
 
 ## Item lifecycle (see `ItemRules.cs`)
 Listed → Downloaded (`DownloadPath`) → Compressed + `Verified` → `OriginalDeleted` → `CompressUploaded` → `DateSet` (+ `UploadedMediaKey`).

@@ -21,7 +21,7 @@ dotnet build
 dotnet test
 dotnet run --project GooglePhotosAutoCompressor
 ```
-Tests that need ffmpeg skip themselves when it is not found.
+Tests that need ffmpeg skip themselves when it is not found. Live Google Photos page tests (`Tests/Live`, `Category=Live`) need Claude Code and a signed-in profile and must stay read-only: never upload, delete or save a date in them.
 
 ## Conventions
 - UI is forced to en-GB (`Const.LOCALE`) so aria-label selectors are stable. Keep all selectors in `Selectors.cs`.

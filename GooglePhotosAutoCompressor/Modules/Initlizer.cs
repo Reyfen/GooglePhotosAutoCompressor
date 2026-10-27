@@ -29,13 +29,14 @@ namespace GooglePhotosAutoCompressor.Modules
             return (playwright, page);
         }
 
-        private static Task<IBrowserContext> Launch(IPlaywright playwright, string profileDir, string? channel)
+        /// <summary>Starts Chrome (or Chromium when <paramref name="channel"/> is null) with the given profile. Also used by the live page tests.</summary>
+        internal static Task<IBrowserContext> Launch(IPlaywright playwright, string profileDir, string? channel, bool headless = false)
         {
             return playwright.Chromium.LaunchPersistentContextAsync(
                 profileDir,
                 new BrowserTypeLaunchPersistentContextOptions()
                 {
-                    Headless = false,
+                    Headless = headless,
                     Channel = channel,
                     Args = new[] { "--disable-blink-features=AutomationControlled" },
                     Locale = Const.LOCALE,
