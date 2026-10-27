@@ -20,6 +20,8 @@ Per-item progress is stored in `~/Downloads/GooglePhotosCache.json` so runs can 
 dotnet build
 dotnet test
 dotnet run --project GooglePhotosAutoCompressor
+./build.ps1               # build + unit tests
+./integration_tests.ps1   # live Google Photos tests (-SignIn the first time)
 ```
 Tests that need ffmpeg skip themselves when it is not found. Live Google Photos page tests (`Tests/Live`, `Category=Live`) need Claude Code and a signed-in profile and must stay read-only: never upload, delete or save a date in them.
 

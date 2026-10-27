@@ -22,6 +22,7 @@ Robustness pass finished: one commit per fix (`git log dev..fix/robustness`).
 | 13 | Linux: Chromium fallback, profile location, sign-in without timeout | `Modules/Initlizer.cs` |
 | 14 | Prompted ffmpeg download with SHA-256 check | `FfmpegInstaller.cs` |
 | 15 | CI (Windows + Linux), README, LFS pointer guard | `.github/workflows/ci.yml` |
+| 18 | Root scripts: `build.ps1` (build + unit tests, Live excluded), `integration_tests.ps1` (live tests; options set env vars for the run only and restore them). README rewritten for non-developers | `build.ps1`, `integration_tests.ps1`, `README.md` |
 | 17 | Photo compression (merged `feature/photo_processing`): JPEG via Magick.NET, EXIF kept, no date step | `PhotoCompressor.cs`, `TileParser.cs`, `ItemRules.cs` |
 | 16 | Live Google Photos page tests per step, checked by local Claude Code (screenshot verdict + failure diagnosis) | `Tests/Live/`, `Tests/ClaudeCode.cs` |
 

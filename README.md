@@ -1,67 +1,71 @@
 # GooglePhotosAutoCompressor
-Utility to reduce video files size on your google photo, so you don't need to pay even more to corporates
 
-It drives a normal Chrome window (via Playwright) on your own Google Photos account:
+Frees up Google Photos storage by replacing your biggest videos and photos with smaller copies.
 
-1. **Download** large items from *Storage → Large files*: videos above 0.8 MB per second, and photos above 2 MB.
-2. **Compress** them:
-   - Videos with ffmpeg: half resolution, H.264 CRF 20, audio and metadata kept.
-   - JPEG photos with Magick.NET: at most 16 MP, quality 85. EXIF data (date taken, location, camera, orientation) and the colour profile are kept.
-   - HEIC, PNG and photos without a date taken are left alone.
-3. **Check** each copy. A video must be as long as the original; a photo must keep its proportions, orientation and date taken. Both must be at least 10% smaller. Otherwise the original is left alone.
-4. **Move originals to the bin.** This happens before upload on purpose, so it works when storage is full. Google keeps the bin for 60 days.
-5. **Upload** the compressed copies.
-6. **Set the date** of each video copy back to the original date. Photo copies already carry their date taken, so they skip this step.
+It opens a normal Chrome window on your own Google Photos account and, for each large item:
 
-Progress is saved to `~/Downloads/GooglePhotosCache.json` after every step, so you can stop and re-run at any time. Each run handles up to 10 videos (`Const.TOTAL_FILES_TO_PROCESS_IN_ONE_BATCH`).
+1. **Downloads** it from *Storage → Large photos and videos*.
+2. **Compresses** it. Videos go to half resolution; JPEG photos go to at most 16 megapixels. Date taken, location and other details are kept.
+3. **Checks** the copy. If anything looks wrong, or it would not save at least 10%, the original is left alone.
+4. **Moves the original to the bin.** Google keeps it there for 60 days, so you can still restore it.
+5. **Uploads** the smaller copy.
+6. **Fixes the date** of video copies so they appear in the right place in your timeline.
 
-## Requirements
-- Windows or Linux (x64 or arm64)
+You can stop it at any time. Progress is saved to `~/Downloads/GooglePhotosCache.json`, and the next run carries on from there. Each run handles up to 10 items.
+
+**Before you start:** compression loses some quality, and once the bin is emptied the originals are gone for good. The app clicks through the Google Photos website, which may be against Google's terms, and a change to that site can break it. Use it on your own account at your own risk.
+
+## What you need
+
+- Windows or Linux
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- Google Chrome (recommended). Without it the app installs Playwright's Chromium, but Google sign-in may refuse it.
-- ffmpeg. Windows builds include it (needs Git LFS). Otherwise the app uses `ffmpeg` from PATH, or offers to download a verified build from [BtbN/FFmpeg-Builds](https://github.com/BtbN/FFmpeg-Builds).
+- Google Chrome
+- ffmpeg: Windows builds include it. Otherwise the app uses the one installed on your PC, or offers to download it.
 
-## Run
+## Run it
+
 ```
 dotnet run --project GooglePhotosAutoCompressor
 ```
-On first start, sign in to Google in the browser window. The session is kept in the browser profile folder for later runs.
 
-Linux may also need the browser's system libraries:
-```
-pwsh GooglePhotosAutoCompressor/bin/Debug/net8.0/playwright.ps1 install-deps chromium
-```
+The first time, sign in to Google in the Chrome window that opens. You stay signed in for later runs.
 
-## Tests
-```
-dotnet test
-```
-Tests that need ffmpeg skip themselves when it is not installed. The real ffmpeg download test runs only with `GPAC_TEST_FFMPEG_DOWNLOAD=1`.
+## Build and test
 
-### Live Google Photos page tests (AI checked)
-`GooglePhotosAutoCompressor.Tests/Live` opens the real Google Photos website with the app's signed-in browser profile and walks through what every step relies on. It uses the same selectors and clicks as the app:
+| Script | What it does | Needs |
+|--------|--------------|-------|
+| `./build.ps1` | Builds the app and runs the unit tests. | .NET 8 |
+| `./integration_tests.ps1` | Tries every step on the real Google Photos website and lets Claude Code check the screenshots. | Chrome, [Claude Code](https://claude.com/claude-code), a signed-in Google account |
 
-| Test | Step it protects |
-|------|------------------|
-| Home page signed in, UI in English (UK) | all (selectors rely on English labels) |
-| Large files scan reads video tiles (size, date, length) | download, delete |
-| Clicking a tile selects it and shows Download and Move to bin | download, delete |
-| Download starts a single-file download (then cancelled) | download |
-| Create → Import from computer opens a file picker (no file given) | upload |
-| Viewer shows file name and date, "next" moves on | date |
-| Date dialog has year, month and day fields; Escape closes it unchanged | date |
-| Move to bin asks for confirmation (off unless `GPAC_TEST_LIVE_BIN_DIALOG=1`) | delete |
+On Linux, run them with `pwsh` (for example `pwsh ./build.ps1`).
 
-After each check, your local [Claude Code](https://claude.com/claude-code) CLI looks at a screenshot and confirms the page looks right. When a selector or click fails, Claude Code describes what the page shows instead, so the failure tells you what Google changed. Screenshots are kept in `%TEMP%/gpac-live-screens` (`/tmp/gpac-live-screens` on Linux).
+`build.ps1` options: `-Configuration Release`, `-SkipTests`.
 
-- **Nothing in your account is changed:** no upload, no delete, no date saved.
-- **Needs:** Google Chrome, `claude` installed and signed in, and a signed-in profile. If something is missing, the tests are skipped and the output says what to do. To sign in during a test run, set `GPAC_TEST_SIGN_IN=1` and sign in within 15 minutes in the browser window the tests open.
-- **Privacy:** screenshots of your library (thumbnails, one opened item) are sent to Claude. A separate test Google account with a few videos is recommended. Point the tests at its profile with `GPAC_TEST_PROFILE_DIR`.
-- **Cost and time:** about 1–2 minutes and some Claude usage per run.
-- **Leave them out:** `dotnet test --filter "Category!=Live"`. To turn them off for every run, set `GPAC_TEST_LIVE=0`.
-- **Other settings:** `GPAC_TEST_CLAUDE_MODEL` (default `sonnet`), `GPAC_TEST_CLAUDE_PATH`, `GPAC_TEST_HEADLESS=1`.
+### Integration tests
 
-## Caveats
-- It works by clicking through the Google Photos website, so a change to that site can break it. All selectors are in `GooglePhotosAutoCompressor/Selectors.cs`.
-- Automating the Google Photos website may be against Google's terms of service. Use it on your own account, at your own risk.
-- Compression is lossy and cannot be undone after the bin is emptied.
+These catch it early when Google changes its website and a step of the app stops working. Each test opens a real page, does what the app does there (scan the list, select an item, start a download, open the upload menu, open the date dialog) and stops before anything is changed. Claude Code then looks at a screenshot to confirm the page is right. When something fails, it describes what it sees instead, so you know what Google changed.
+
+- **Your account is not changed:** nothing is uploaded, deleted or re-dated. Downloads are cancelled.
+- **First time:** run `./integration_tests.ps1 -SignIn` and sign in to Google in the window that opens. You have 15 minutes.
+- **Privacy:** screenshots of your library are sent to Claude. A separate test account is safer. Use it with `-ProfileDir <path to its Chrome profile>`.
+- **Time and cost:** about 1–2 minutes and a little Claude usage per run.
+- **Screenshots** are saved to your temp folder, under `gpac-live-screens`.
+- **Other options:**
+  - `-BinDialog` also opens the "Move to bin" confirmation and then cancels it. If something goes wrong, one item could end up in the bin.
+  - `-Headless` runs without a window.
+  - `-Model <name>` picks the Claude model (default `sonnet`).
+
+If something is missing (Claude Code, Chrome or sign-in), the tests are skipped with a message that says what to do.
+
+## For developers
+
+- Plain `dotnet test` runs everything, including the integration tests. Use `--filter "Category!=Live"` to leave them out.
+- Test settings (environment variables):
+  - `GPAC_TEST_LIVE=0` turns the integration tests off.
+  - `GPAC_TEST_SIGN_IN`, `GPAC_TEST_LIVE_BIN_DIALOG`, `GPAC_TEST_HEADLESS`, `GPAC_TEST_CLAUDE_MODEL` and `GPAC_TEST_PROFILE_DIR` match the script options.
+  - `GPAC_TEST_CLAUDE_PATH` points to `claude` when it is not on PATH.
+  - `GPAC_TEST_FFMPEG_DOWNLOAD=1` runs the real ffmpeg download test.
+- Tests that need ffmpeg skip themselves when it is not installed.
+- All page selectors are in `GooglePhotosAutoCompressor/Selectors.cs`.
+- On Linux, Chrome may need system libraries: `pwsh GooglePhotosAutoCompressor/bin/Debug/net8.0/playwright.ps1 install-deps chromium`.
+- Agent notes and current status: [HANDOFF.md](HANDOFF.md).
