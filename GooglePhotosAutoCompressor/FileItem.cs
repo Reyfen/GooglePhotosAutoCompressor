@@ -2,6 +2,8 @@
 {
     internal class FileItem : IEquatable<FileItem>
     {
+        /// <summary>Video unless the tile had no duration. Missing in old state files, which only held videos.</summary>
+        public MediaType MediaType { get; init; } = MediaType.Video;
         public string MediaKey { get; init; }
         public DateOnly Date { get; init; }
         public TimeSpan Duration { get; init; }
@@ -50,5 +52,11 @@
         {
             return (a == b) == false;
         }
+    }
+
+    internal enum MediaType
+    {
+        Video,
+        Image,
     }
 }

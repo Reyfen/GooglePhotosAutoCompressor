@@ -40,14 +40,20 @@ namespace GooglePhotosAutoCompressor
 
             texts[dateIndex] = string.Empty;
 
+            // Videos show a duration; photos do not.
             TimeSpan duration = default;
             int durationIndex = Array.FindIndex(texts, t => TimeSpan.TryParseExact(t, Const.TIME_FORMATS, CultureInfo.InvariantCulture, out duration));
-            if (durationIndex < 0 || duration <= TimeSpan.Zero)
+            if (durationIndex < 0)
+            {
+                return new() { MediaType = MediaType.Image, MediaKey = mediaKey, Date = date, Size = size };
+            }
+
+            if (duration <= TimeSpan.Zero)
             {
                 return null;
             }
 
-            return new() { MediaKey = mediaKey, Date = date, Duration = duration, Size = size };
+            return new() { MediaType = MediaType.Video, MediaKey = mediaKey, Date = date, Duration = duration, Size = size };
         }
 
         /// <summary>Parses "12.5 MB" style text. Returns -1 when the text is not a size.</summary>

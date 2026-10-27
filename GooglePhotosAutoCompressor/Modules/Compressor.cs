@@ -17,19 +17,37 @@
 
             Directory.CreateDirectory(FilePaths.COMPRESS_DIR);
 
-            foreach (FileItem file in filesData.Items.Where(ItemRules.NeedsCompression).ToArray())
+            FileItem[] toCompress = filesData.Items.Where(ItemRules.NeedsCompression).ToArray();
+            List<string> summary = new();
+
+            for (int i = 0; i < toCompress.Length; i++)
             {
+                FileItem file = toCompress[i];
                 CompressResult result = await Task.Run(() => CompressOne(ffmpeg, file, FilePaths.COMPRESS_DIR));
                 filesData.Save();
 
-                string log = result switch
+                string log = $"[{i + 1}/{toCompress.Length}] " + result switch
                 {
-                    CompressResult.Ok => $"ok {file.CompressPath} \t {new FileInfo(file.CompressPath).Length / file.Duration.TotalSeconds / 1024 / 1024:F2} MB/s",
+                    CompressResult.Ok => $"ok {file.CompressPath} \t {DescribeSaving(file)}",
                     CompressResult.NotWorthIt => $"skipped, would not save space or unsupported format: {file.DownloadPath}",
                     _ => $"failed ({file.FailCount}/{Const.MAX_FAILS}): {file.DownloadPath}",
                 };
                 Console.WriteLine($"Compressor: {log}");
+                summary.Add(log);
             }
+
+            // The per-file lines scroll away behind ffmpeg's output, so repeat them at the end.
+            if (summary.Count > 0)
+            {
+                Console.WriteLine($"\nCompressor: summary\n{string.Join('\n', summary)}");
+            }
+        }
+
+        private static string DescribeSaving(FileItem file)
+        {
+            long before = File.Exists(file.DownloadPath) ? new FileInfo(file.DownloadPath).Length : file.Size;
+            long after = new FileInfo(file.CompressPath).Length;
+            return $"{before / 1024.0 / 1024:F1} MB -> {after / 1024.0 / 1024:F1} MB";
         }
 
         /// <summary>

@@ -47,9 +47,27 @@ namespace GooglePhotosAutoCompressor.Tests
         }
 
         [Fact]
-        public void Parse_skips_photo_tile_without_duration()
+        public void Parse_reads_tile_without_duration_as_photo()
         {
-            Assert.Null(TileParser.Parse("k", new[] { "8 MB\n4 Oct 2024" }));
+            FileItem? item = TileParser.Parse("k", new[] { "8 MB\n4 Oct 2024" });
+
+            Assert.NotNull(item);
+            Assert.Equal(MediaType.Image, item!.MediaType);
+            Assert.Equal(8L * 1024 * 1024, item.Size);
+            Assert.Equal(new DateOnly(2024, 10, 4), item.Date);
+            Assert.Equal(TimeSpan.Zero, item.Duration);
+        }
+
+        [Fact]
+        public void Parse_reads_tile_with_duration_as_video()
+        {
+            Assert.Equal(MediaType.Video, TileParser.Parse("k", new[] { "0:09\n8 MB\n4 Oct 2024" })!.MediaType);
+        }
+
+        [Fact]
+        public void Parse_skips_photo_tile_without_date()
+        {
+            Assert.Null(TileParser.Parse("k", new[] { "8 MB" }));
         }
 
         [Fact]
