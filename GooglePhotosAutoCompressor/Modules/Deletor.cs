@@ -8,49 +8,66 @@ namespace GooglePhotosAutoCompressor.Modules
         {
             Console.WriteLine("\n===\nDeleteCompressedFiles\n===\n");
 
-            List<FileItem> storedFilesToDelete = new();
-            using CancellationTokenSource cts = new();
-            int notStoredItems = 0;
-            await LargeFileLocator.EnumearteFiles(page, DeleteSelectedFile, cts.Token);
+            // Look for exactly these items. The old version stopped after 21 unknown tiles,
+            // which skipped originals further down the list (and left duplicates after upload).
+            Dictionary<string, FileItem> pending = files.Items.Where(ItemRules.CanDeleteOriginal).ToDictionary(i => i.MediaKey);
 
-            if (storedFilesToDelete.Count == 0)
+            if (pending.Count == 0)
+            {
+                return;
+            }
+
+            List<FileItem> selected = new();
+            using CancellationTokenSource cts = new();
+            await LargeFileLocator.EnumearteFiles(page, SelectTile, cts.Token);
+
+            foreach (FileItem missing in pending.Values)
+            {
+                Console.WriteLine($"Deletor: original not found in large files list: {missing.MediaKey} ({missing.Date})");
+            }
+
+            if (selected.Count == 0)
             {
                 return;
             }
 
             ILocator deleteButton = await GetDeleteButton(page);
-
             await deleteButton.ClickAsync();
-            await Task.Delay(100);
-            ILocator finalDeletteButton = page.Locator("[data-mdc-dialog-button-default]");
-            await finalDeletteButton.ClickAsync();
 
-            foreach (var item in storedFilesToDelete)
+            ILocator confirmButton = page.Locator("[data-mdc-dialog-button-default]");
+            await confirmButton.ClickAsync();
+            await confirmButton.WaitForAsync(new() { State = WaitForSelectorState.Hidden });
+
+            foreach (FileItem item in selected)
             {
+                // A tile still on the page after the dialog closed was not moved to the bin.
+                if (await page.Locator($"[data-media-key='{item.MediaKey}']").CountAsync() > 0)
+                {
+                    Console.WriteLine($"Deletor: still present after delete, will retry next run: {item.MediaKey}");
+                    continue;
+                }
+
                 item.OriginalDeleted = true;
+                Console.WriteLine($"Deletor: moved to bin: {item.MediaKey} ({item.Date})");
             }
+
             files.Save();
 
-
-            async Task DeleteSelectedFile(ILocator tile, FileItem item)
+            async Task SelectTile(ILocator tile, FileItem item)
             {
-                FileItem? storedItem = files.Items.FirstOrDefault(i => i.MediaKey == item.MediaKey && string.IsNullOrEmpty(i.CompressPath) == false);
-
-                if (storedItem == null)
+                if (pending.Remove(item.MediaKey, out FileItem? stored) == false)
                 {
-                    notStoredItems++;
-                    if (notStoredItems > 20)
-                    {
-                        cts.Cancel();
-                    }
-
                     return;
                 }
 
-                storedFilesToDelete.Add(storedItem);
-
                 await tile.ClickAsync();
                 await Task.Delay(100);
+                selected.Add(stored);
+
+                if (pending.Count == 0)
+                {
+                    cts.Cancel();
+                }
             }
         }
 

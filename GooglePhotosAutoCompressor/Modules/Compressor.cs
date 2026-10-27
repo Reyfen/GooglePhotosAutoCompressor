@@ -42,6 +42,7 @@ namespace GooglePhotosAutoCompressor.Modules
                 if (File.Exists(path))
                 {
                     file.CompressPath = path;
+                    file.Verified = true;
                     filesData.Save();
                     long size = new FileInfo(path).Length;
                     Console.WriteLine($"Compressor: alredy compressed {file.CompressPath} \t\t {size / file.Duration.TotalSeconds / 1024 / 1024:F2} MB/s");
@@ -53,6 +54,7 @@ namespace GooglePhotosAutoCompressor.Modules
                 if (success)
                 {
                     file.CompressPath = path;
+                    file.Verified = true;
                     filesData.Save();
                     long size = new FileInfo(path).Length;
                     Console.WriteLine($"Compressor: alredy compressed {file.CompressPath} \t\t {size / file.Duration.TotalSeconds / 1024 / 1024:F2} MB/s");

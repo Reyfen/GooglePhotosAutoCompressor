@@ -8,16 +8,13 @@ namespace GooglePhotosAutoCompressor.Modules
         {
             Console.WriteLine("\n===\nDownloadUncommresedFiles\n===\n");
 
-            ILocator scrollView = page.Locator("[data-p*='mediaKey']").Locator("..");
-
             FileItemsData itemsData = new ();
 
             using SemaphoreSlim semaphore = new SemaphoreSlim(5);
 
             List<Task> downloadTasks = new();
             using CancellationTokenSource cts = new();
-            int filesToFinishProcessing = itemsData.Items.Count(i => IsCompressionReasonable(i) && (IsDownloadNeeded(i) || i.DateSet == false));
-            var x = itemsData.Items.Where(i => IsCompressionReasonable(i) && (IsDownloadNeeded(i) || i.DateSet == false)).ToArray();
+            int filesToFinishProcessing = itemsData.Items.Count(ItemRules.IsInProgress);
 
             if (filesToFinishProcessing >= Const.TOTAL_FILES_TO_PROCESS_IN_ONE_BATCH)
             {
@@ -35,7 +32,7 @@ namespace GooglePhotosAutoCompressor.Modules
                 item = itemsData.AddOrGet(item);
                 itemsData.Save();
 
-                if (IsCompressionReasonable(item) == false || IsDownloadNeeded(item) == false)
+                if (ItemRules.IsCompressionReasonable(item) == false || ItemRules.NeedsDownload(item) == false)
                 {
                     return;
                 }
@@ -93,33 +90,6 @@ namespace GooglePhotosAutoCompressor.Modules
 
                 await Task.Delay(100);
             }
-        }
-
-        private static bool IsCompressionReasonable(FileItem item)
-        {
-            double sizePerSec = item.Size / item.Duration.TotalSeconds;
-
-            return sizePerSec >= Const.MIN_SIZE_PER_SEC_TO_COMPRESS;
-        }
-
-        private static bool IsDownloadNeeded(FileItem item)
-        {
-            if (item.CompressUploaded || item.DateSet)
-            {
-                return false;
-            }
-
-            if (string.IsNullOrEmpty(item.DownloadPath) == false && File.Exists(item.DownloadPath))
-            {
-                return false;
-            }
-
-            if (string.IsNullOrEmpty(item.CompressPath) == false && File.Exists(item.CompressPath))
-            {
-                return false;
-            }
-
-            return true;
         }
 
         private static async Task<(IDownload? download, string path)> GetFileDownloader(IPage page, string mediaKey)

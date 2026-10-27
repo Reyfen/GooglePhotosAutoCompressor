@@ -9,6 +9,8 @@
 
         public string DownloadPath { get; set; }
         public string CompressPath { get; set; }
+        /// <summary>Compressed file was checked (duration matches, smaller than the original).</summary>
+        public bool Verified { get; set; }
         public bool OriginalDeleted { get; set; }
         public bool CompressUploaded { get; set; }
         public bool DateSet { get; set; }

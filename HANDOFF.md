@@ -11,7 +11,7 @@ Robustness pass in progress. Each item below is its own commit.
 | 2 | Test project + `TileParser` split out | done |
 | 3 | State file: lock + atomic write | done |
 | 4 | Download/compress paths unique per media key | done |
-| 5 | Delete step: no 21-miss cutoff, only verified items, recovers 12 duplicates | todo |
+| 5 | Delete step: no 21-miss cutoff, only verified items, recovers 12 duplicates | done |
 | 6 | Upload step: only after original is binned | todo |
 | 7 | Compressor: temp file, verify output, safer ffmpeg args | todo |
 | 8 | Upload completion detection | todo |
