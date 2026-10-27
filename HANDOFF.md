@@ -15,7 +15,7 @@ Robustness pass in progress. Each item below is its own commit.
 | 6 | Upload step: only after original is binned | done |
 | 7 | Compressor: temp file, verify output, safer ffmpeg args | done |
 | 8 | Upload completion detection | done |
-| 9 | Date setter: consecutive-miss limit, record uploaded media key | todo |
+| 9 | Date setter: consecutive-miss limit, record uploaded media key | done |
 | 10 | Large-files scan: detect end of list | todo |
 | 11 | Downloader: one failure does not stop the run, zip guard | todo |
 | 12 | Skip our own compressed uploads (no double compression) | todo |

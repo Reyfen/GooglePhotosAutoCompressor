@@ -1,4 +1,5 @@
 ﻿using Microsoft.Playwright;
+using System.Text.RegularExpressions;
 
 namespace GooglePhotosAutoCompressor.Modules
 {
@@ -8,56 +9,92 @@ namespace GooglePhotosAutoCompressor.Modules
         {
             Console.WriteLine("\n===\nSetCompressedFilesDates\n===\n");
 
-            await page.Locator("[data-latest-bg]").First.ClickAsync();
+            // File name shown in Google Photos -> item. Names are unique (they contain a media key id).
+            Dictionary<string, FileItem> pending = files.Items
+                .Where(ItemRules.NeedsDateSet)
+                .ToDictionary(i => Path.GetFileName(i.CompressPath));
 
-            ILocator fileNamePanels = page.Locator("[aria-label^='Filename:']");
-
-            await WaitForAnyVisibleAsync(fileNamePanels, 3000);
-
-            if (await fileNamePanels.CountAsync() == 0)
+            if (pending.Count == 0)
             {
-                await page.Locator("button[aria-label='Open info']").ClickAsync();
+                return;
             }
 
-            await WaitForAnyVisibleAsync(fileNamePanels, 3000);
+            await page.GotoAsync($"https://photos.google.com/?hl={Const.LOCALE}");
+            await page.Locator(Selectors.LIBRARY_FIRST_ITEM).First.ClickAsync();
 
-            ILocator nextPhotoButton = page.Locator("[aria-label='View next photo']");
+            ILocator fileNamePanels = page.Locator(Selectors.FILE_NAME_PANEL);
 
-            int notFoundCount = 0;
-            for (int i = 0; i < 10_000 && notFoundCount < 10; i++)
+            if (await WaitForAnyVisibleAsync(fileNamePanels, 3000) == false)
             {
-                ILocator fileNamePanel = await FindActivePanel(fileNamePanels);
-                string fileNameText = await fileNamePanel.InnerTextAsync();
-                FileItem file = files.Items.FirstOrDefault(x => Path.GetFileName(x.CompressPath) == fileNameText);
+                await page.Locator(Selectors.OPEN_INFO_BUTTON).ClickAsync();
+                await WaitForAnyVisibleAsync(fileNamePanels, 3000);
+            }
 
-                if (file == null || file.DateSet)
+            ILocator nextPhotoButton = page.Locator(Selectors.NEXT_PHOTO_BUTTON);
+
+            // New uploads sit at the top of the library. Give up after this many other items in a row
+            // (photos synced from a phone during the run also land there, so allow some slack).
+            int maxMissesInRow = 20 + pending.Count;
+            int missesInRow = 0;
+
+            for (int i = 0; i < 10_000 && pending.Count > 0 && missesInRow < maxMissesInRow; i++)
+            {
+                try
                 {
-                    notFoundCount++;
-                    await nextPhotoButton.First.ClickAsync();
-                    await Task.Delay(1000);
-                    continue;
+                    string fileName = (await (await FindActivePanel(fileNamePanels)).InnerTextAsync()).Trim();
+
+                    if (pending.Remove(fileName, out FileItem? file))
+                    {
+                        await SetDate(page, file.Date);
+
+                        file.DateSet = true;
+                        file.CompressUploaded = true; // found it, so the upload certainly worked
+                        file.UploadedMediaKey = ParseMediaKeyFromUrl(page.Url);
+                        files.Save();
+                        missesInRow = 0;
+
+                        Console.WriteLine($"DateSetter: {fileName} -> {file.Date}");
+                    }
+                    else
+                    {
+                        missesInRow++;
+                    }
                 }
-
-                ILocator datePanels = page.Locator("[aria-label^='Date taken:']");
-                ILocator datePanel = await FindActivePanel(datePanels);
-                await datePanel.ClickAsync();
-
-                ILocator dateDialog = page.Locator("[role='dialog']");
-                await dateDialog.WaitForAsync();
-
-                await dateDialog.Locator("input[aria-label='Year']").First.FillAsync(file.Date.Year.ToString());
-                await dateDialog.Locator("input[aria-label='Month']").First.FillAsync(file.Date.Month.ToString());
-                await dateDialog.Locator("input[aria-label='Day']").First.FillAsync(file.Date.Day.ToString());
-                await dateDialog.Locator("button[data-mdc-dialog-button-default]").First.ClickAsync();
-
-                Console.WriteLine($"date set for: {Path.GetFileName(file.CompressPath)} {file.Date}");
-
-                file.DateSet = true;
-                files.Save();
+                catch (Exception e) when (e is PlaywrightException or TimeoutException or InvalidOperationException)
+                {
+                    missesInRow++;
+                    Console.WriteLine($"DateSetter: skipped an item: {e.Message}");
+                }
 
                 await nextPhotoButton.First.ClickAsync();
                 await Task.Delay(1000);
             }
+
+            foreach (string name in pending.Keys)
+            {
+                Console.WriteLine($"DateSetter: not found this run: {name}");
+            }
+        }
+
+        private static async Task SetDate(IPage page, DateOnly date)
+        {
+            ILocator datePanel = await FindActivePanel(page.Locator(Selectors.DATE_TAKEN_PANEL));
+            await datePanel.ClickAsync();
+
+            ILocator dateDialog = page.Locator(Selectors.DIALOG);
+            await dateDialog.WaitForAsync();
+
+            await dateDialog.Locator(Selectors.DATE_YEAR_INPUT).First.FillAsync(date.Year.ToString());
+            await dateDialog.Locator(Selectors.DATE_MONTH_INPUT).First.FillAsync(date.Month.ToString());
+            await dateDialog.Locator(Selectors.DATE_DAY_INPUT).First.FillAsync(date.Day.ToString());
+            await dateDialog.Locator(Selectors.DIALOG_DEFAULT_BUTTON).First.ClickAsync();
+        }
+
+        /// <summary>Viewer URLs look like https://photos.google.com/photo/AF1Qip...?hl=en-GB</summary>
+        internal static string? ParseMediaKeyFromUrl(string url)
+        {
+            Match match = Regex.Match(url, @"/photo/([A-Za-z0-9_-]+)");
+            return match.Success ? match.Groups[1].Value : null;
         }
 
         private static async Task<ILocator> FindActivePanel(ILocator panels)
@@ -76,7 +113,7 @@ namespace GooglePhotosAutoCompressor.Modules
                 return panel;
             }
 
-            throw new Exception("panel not found");
+            throw new InvalidOperationException("panel not found");
         }
 
         public static async Task<bool> WaitForAnyVisibleAsync(ILocator locator, int timeout)

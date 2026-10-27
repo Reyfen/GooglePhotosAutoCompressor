@@ -18,6 +18,8 @@
         public bool OriginalDeleted { get; set; }
         public bool CompressUploaded { get; set; }
         public bool DateSet { get; set; }
+        /// <summary>Media key of our uploaded copy, so later runs never treat it as a new original.</summary>
+        public string? UploadedMediaKey { get; set; }
 
         public bool Equals(FileItem? other)
         {

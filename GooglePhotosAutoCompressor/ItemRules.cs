@@ -71,6 +71,13 @@ namespace GooglePhotosAutoCompressor
             return item.OriginalDeleted && item.CompressUploaded == false && item.Verified && FileExists(item.CompressPath);
         }
 
+        /// <summary>Copy is (probably) in Google Photos and still needs its date fixed.</summary>
+        public static bool NeedsDateSet(FileItem item)
+        {
+            return item.OriginalDeleted && item.DateSet == false && (item.CompressUploaded || item.Verified)
+                   && string.IsNullOrEmpty(item.CompressPath) == false;
+        }
+
         private static bool FileExists(string? path) => string.IsNullOrEmpty(path) == false && File.Exists(path);
     }
 }
