@@ -5,7 +5,7 @@
         x:DataType="vm:MainViewModel"
         Title="Google Photos Auto Compressor"
         Icon="avares://GooglePhotosAutoCompressor/Assets/icon.ico"
-        Width="1040" Height="760" MinWidth="720" MinHeight="560"
+        Width="1040" Height="760" MinWidth="720" MinHeight="680"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource PageBrush}">
 
@@ -35,11 +35,12 @@
 
       <!-- RUN -->
       <TabItem Header="Run">
-        <ScrollViewer>
-          <StackPanel Spacing="12" Margin="4,0,4,8">
+        <!-- No page scrolling: status and counts take what they need, the activity panel the rest
+             (at least LogBrush's MinHeight) and grows with the window. Only the log itself scrolls. -->
+        <Grid RowDefinitions="Auto,Auto,*" Margin="4,0,4,8">
 
             <!-- Status and progress -->
-            <Border Classes="card">
+            <Border Classes="card" Margin="0,0,0,12">
               <StackPanel Spacing="10">
                 <Grid ColumnDefinitions="*,Auto">
                   <TextBlock Text="{Binding StatusText}" FontSize="15" FontWeight="SemiBold" TextWrapping="Wrap"
@@ -121,7 +122,7 @@
             </Border>
 
             <!-- Stats -->
-            <UniformGrid Columns="5" Rows="1">
+            <UniformGrid Grid.Row="1" Margin="0,0,0,12" Columns="5" Rows="1">
               <UniformGrid.Styles>
                 <Style Selector="UniformGrid > Border"><Setter Property="Margin" Value="0,0,8,0" /></Style>
               </UniformGrid.Styles>
@@ -150,7 +151,7 @@
             </UniformGrid>
 
             <!-- Log -->
-            <Border Classes="card">
+            <Border Grid.Row="2" Classes="card">
               <DockPanel>
                 <Grid DockPanel.Dock="Top" ColumnDefinitions="*,Auto" Margin="0,0,0,8">
                   <TextBlock Classes="h2" Text="Activity" Margin="0" VerticalAlignment="Center" />
@@ -159,7 +160,7 @@
                     <Button Content="Open log file" Command="{Binding OpenLogCommand}" ToolTip.Tip="{Binding LogPath}" />
                   </StackPanel>
                 </Grid>
-                <Border Background="{DynamicResource LogBrush}" CornerRadius="6" Height="260">
+                <Border x:Name="LogPanel" Background="{DynamicResource LogBrush}" CornerRadius="6" MinHeight="160">
                   <Panel>
                   <StackPanel IsVisible="{Binding !LogLines.Count}" VerticalAlignment="Center" HorizontalAlignment="Center" Spacing="4" Margin="20">
                     <TextBlock Classes="muted" HorizontalAlignment="Center" Text="What the app does appears here once you press Start." />
@@ -183,8 +184,7 @@
                 </Border>
               </DockPanel>
             </Border>
-          </StackPanel>
-        </ScrollViewer>
+        </Grid>
       </TabItem>
 
       <!-- ITEMS -->

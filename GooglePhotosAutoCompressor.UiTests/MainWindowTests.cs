@@ -177,6 +177,40 @@ namespace GooglePhotosAutoCompressor.UiTests
         }
 
         [AvaloniaFact]
+        public void Run_page_fits_without_scrolling_and_the_activity_panel_grows_with_the_window()
+        {
+            (MainWindow window, MainViewModel vm, _) = Open();
+            for (int i = 0; i < 200; i++) vm.LogLines.Add($"line {i}"); // a long log scrolls inside its panel only
+            Border panel = window.GetVisualDescendantsOfType<Border>().Single(b => b.Name == "LogPanel");
+
+            double PanelHeightAt(double width, double height)
+            {
+                window.Width = width;
+                window.Height = height;
+                Dispatcher.UIThread.RunJobs();
+                AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+                Dispatcher.UIThread.RunJobs();
+                // The whole panel is inside the window: nothing below it needs page scrolling.
+                double bottom = panel.TranslatePoint(new Point(0, panel.Bounds.Height), window)!.Value.Y;
+                Assert.True(bottom <= window.Bounds.Height, $"activity panel ends at {bottom:0}, below the {height:0} px window");
+                Console.WriteLine($"{width}x{height}: activity panel {panel.Bounds.Height:0} px");
+                return panel.Bounds.Height;
+            }
+
+            // No ScrollViewer around the page: the only one above the log lines is the log's own.
+            Assert.DoesNotContain(window.GetVisualDescendantsOfType<ScrollViewer>(), sv => sv.IsEffectivelyVisible && sv.GetVisualDescendantsOfType<Border>().Contains(panel));
+
+            double atDefault = PanelHeightAt(1040, 760);
+            Screenshot(window, "1d-run-default-size");
+            double atTall = PanelHeightAt(1040, 1000);
+            double atMinimum = PanelHeightAt(window.MinWidth, window.MinHeight);
+
+            Assert.True(atDefault > 160);
+            Assert.Equal(atDefault + 240, atTall, 1); // all extra height goes to the activity panel
+            Assert.True(atMinimum >= panel.MinHeight - 0.5, $"at the minimum window size the panel is {atMinimum:0} px");
+        }
+
+        [AvaloniaFact]
         public void Items_page_lists_every_item_with_status_and_filters()
         {
             SeedState();
