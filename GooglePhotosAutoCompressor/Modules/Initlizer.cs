@@ -38,7 +38,8 @@ namespace GooglePhotosAutoCompressor.Modules
                 {
                     Headless = headless,
                     Channel = channel,
-                    Args = new[] { "--disable-blink-features=AutomationControlled" },
+                    // Muted: the app opens videos (date dialog, date step) and their sound would play.
+                    Args = new[] { "--disable-blink-features=AutomationControlled", "--mute-audio" },
                     Locale = Const.LOCALE,
                     AcceptDownloads = true,
                 });
