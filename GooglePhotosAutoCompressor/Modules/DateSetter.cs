@@ -48,16 +48,21 @@ namespace GooglePhotosAutoCompressor.Modules
 
                     if (pending.Remove(fileName, out FileItem? file))
                     {
-                        await SetDate(page, file.Date);
-
-                        file.DateSet = true;
-                        file.DateSetMisses = 0;
-                        file.CompressUploaded = true; // found it, so the upload certainly worked
+                        // Found it, so the upload certainly worked. Saved before the date, in case setting it fails.
+                        file.CompressUploaded = true;
                         file.UploadedMediaKey = ParseMediaKeyFromUrl(page.Url);
                         files.Save();
                         missesInRow = 0;
 
-                        Console.WriteLine($"DateSetter: {fileName} -> {file.Date}");
+                        ILocator dialog = await DateDialog.Open(page);
+                        await DateDialog.Save(page, dialog, file.Date, file.TakenAt, file.TakenOffsetMs);
+
+                        file.DateSet = true;
+                        file.DateSetMisses = 0;
+                        files.Save();
+
+                        Console.WriteLine($"DateSetter: {fileName} -> " +
+                                          (file.TakenAt is DateTime t ? TakenTime.Describe(t, file.TakenOffsetMs) : $"{file.Date} (time kept from the file)"));
                     }
                     else
                     {
@@ -103,20 +108,6 @@ namespace GooglePhotosAutoCompressor.Modules
             }
         }
 
-        private static async Task SetDate(IPage page, DateOnly date)
-        {
-            ILocator datePanel = await FindActivePanel(page.Locator(Selectors.DATE_TAKEN_PANEL));
-            await datePanel.ClickAsync();
-
-            ILocator dateDialog = page.Locator(Selectors.DIALOG);
-            await dateDialog.WaitForAsync();
-
-            await dateDialog.Locator(Selectors.DATE_YEAR_INPUT).First.FillAsync(date.Year.ToString());
-            await dateDialog.Locator(Selectors.DATE_MONTH_INPUT).First.FillAsync(date.Month.ToString());
-            await dateDialog.Locator(Selectors.DATE_DAY_INPUT).First.FillAsync(date.Day.ToString());
-            await dateDialog.Locator(Selectors.DIALOG_DEFAULT_BUTTON).First.ClickAsync();
-        }
-
         /// <summary>Viewer URLs look like https://photos.google.com/photo/AF1Qip...?hl=en-GB</summary>
         internal static string? ParseMediaKeyFromUrl(string url)
         {
@@ -124,7 +115,7 @@ namespace GooglePhotosAutoCompressor.Modules
             return match.Success ? match.Groups[1].Value : null;
         }
 
-        private static async Task<ILocator> FindActivePanel(ILocator panels)
+        internal static async Task<ILocator> FindActivePanel(ILocator panels)
         {
             int count = await panels.CountAsync();
             for (int i = 0; i < count; i++)

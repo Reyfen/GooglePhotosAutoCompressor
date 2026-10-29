@@ -1,6 +1,6 @@
 # Handoff
 
-Last updated: 2026-10-27, branch `fix/robustness` (pushed; `dev` was fast-forwarded to it earlier).
+Last updated: 2026-10-29, branch `fix/robustness` (`dev` was fast-forwarded to 1529751 on 2026-10-28).
 
 ## Status
 Robustness pass finished: one commit per fix (`git log dev..fix/robustness`).
@@ -22,6 +22,7 @@ Robustness pass finished: one commit per fix (`git log dev..fix/robustness`).
 | 13 | Linux: Chromium fallback, profile location, sign-in without timeout | `Modules/Initlizer.cs` |
 | 14 | Prompted ffmpeg download with SHA-256 check | `FfmpegInstaller.cs` |
 | 15 | CI (Windows + Linux), README, LFS pointer guard | `.github/workflows/ci.yml` |
+| 23 | Date **and time** (and time zone) of each original are read from Google Photos before the bin and given to the copy (see "Date and time taken") | `TakenTime.cs`, `Modules/TakenTimeReader.cs`, `Modules/DateDialog.cs` |
 | 22 | Packages: portable Windows exe (`publish.ps1`), AppImage `.tar.gz` + `.deb` (`packaging/linux/build-packages.sh`), `--check` setup check, `Packages` workflow testing them on clean VMs/containers | `publish.ps1`, `packaging/`, `.github/workflows/packages.yml`, `SetupCheck.cs` |
 | 21 | Avalonia desktop app (Run / Items / Settings / Help), `--cli`, UI tests drawn headless | `GooglePhotosAutoCompressor.App/`, `GooglePhotosAutoCompressor.UiTests/` |
 | 20 | Settings (`settings.json` in LocalAppData) replace the batch/threshold/quality constants; `Pipeline` runs the steps with Stop, progress, retry and internet waits; core is now a library (`GooglePhotosAutoCompressor.Core.dll`) | `Settings.cs`, `Pipeline.cs`, `AppSupport.cs` |
@@ -50,6 +51,15 @@ Every step only acts on what the state file says is ready, and the file is saved
 
 Not covered: a photo copy whose upload was wrongly reported as done (photos have no date step to notice it). Rare: needs the progress bar to vanish while the connection checks every 5 s all pass.
 
+## Date and time taken
+Before 2026-10-29 the date step typed only year/month/day. A video copy kept its time only through the file's `creation_time`, so a video without one, or one whose time was edited in Google Photos, got the wrong time.
+- New step "Reading date and time of the originals" (`TakenTimeReader`, stage `ReadingDates`) runs before the bin. For each item ready for the bin it opens `photos.google.com/photo/<media key>`, opens the "Edit date and time" dialog, reads Year/Month/Day/Hour/Minutes and the time zone, and closes it with Escape (never saves). Stored in `FileItem.TakenAt` (wall-clock, minute) and `TakenOffsetMs` (Google's own unit: the time zone list's `data-value`).
+- `ItemRules.IsReadyForBin` = `CanDeleteOriginal` + time known. The read is retried for 3 runs (`TakenTime.READ_TRIES`, `TakenReadMisses`); after that the original may go anyway and the copy keeps the file's own time. A read whose date differs from the list date counts as a miss (wrong page).
+- Videos: the date step types the date, hour, minutes, and picks the time zone **first** (picking a zone shifts the shown time to keep the same moment — found in a live check). `DateDialog.Fill` reads the fields back and refuses to save if they differ.
+- Photos: still no date step (Google places them by EXIF). If Google's time differs from the copy's EXIF (edited in Google Photos), `PhotoCompressor.ApplyTakenTime` makes the copy again from the download with that `DateTimeOriginal` + `OffsetTimeOriginal`.
+- Dialog facts (live, 2026-10-29): inputs `aria-label` Year, Month, Day, Hour, Minutes (24 h); time zone `div[role=combobox]` shows "GMT+01:00 British Summer Time"; options `[role=option][data-value=<ms>]`; the first Escape closes only an open time zone list. The info panel's "Date taken:" label has the date only.
+- Verified live, read-only: reading an original by media key; typing another time and zone into the dialog and cancelling (values unchanged afterwards). Not verified: an actual save (the live tests must not save).
+
 ## Desktop app (`GooglePhotosAutoCompressor.App`)
 - Assembly name `GooglePhotosAutoCompressor` (the exe); the core is `GooglePhotosAutoCompressor.Core.dll` (library). `InternalsVisibleTo` lets the app and tests use the internal core types.
 - Avalonia 11.3.22 (not 12: the 11 API is known and stable), CommunityToolkit.Mvvm, compiled bindings. `ViewModels/MainViewModel` talks to the core only through `Pipeline` + `PipelineHost` callbacks (marshalled to the UI thread).
@@ -72,7 +82,7 @@ Not covered: a photo copy whose upload was wrongly reported as done (photos have
 - Tests reuse the app's own code where possible (`LargeFileLocator.EnumearteFiles`, `Initlizer.Launch`, `DateSetter.WaitForAnyVisibleAsync`, `Selectors`).
 - `ExpectScreen` asks Claude Code a yes/no question about a screenshot. `Expect`/`Fail` wrap page actions; on failure Claude Code describes the page (`ClaudeCode.DescribeProblem`).
 - Must stay read-only. The download is cancelled, dialogs are closed with Escape, and the bin dialog test is opt-in only.
-- Not covered (can't be done read-only): the upload progress indicator (`UPLOAD_PROGRESS`), saving a date, confirming a delete.
+- Not covered (can't be done read-only): the upload progress indicator (`UPLOAD_PROGRESS`), saving a date (filling it and cancelling is covered), confirming a delete.
 - Verified 2026-10-27: the owner signed in with `GPAC_TEST_SIGN_IN=1` (wait is now 15 min) and the profile stays signed in. Result: 7 passed, 1 skipped (bin dialog, opt-in). The large files page is a **single-column list**, not a grid; the AI question for it was too strict and was fixed. The scan read 30 tiles correctly (size, duration, date).
 
 ## Photos (`PhotoCompressor.cs`)
@@ -87,12 +97,12 @@ Not covered: a photo copy whose upload was wrongly reported as done (photos have
 - The downloaded file's type decides how an item is compressed, not the tile: a video tile whose duration hasn't loaded yet looks like a photo. `.jpg`/`.jpeg` go to `PhotoCompressor`; other photo types are skipped.
 - JPEG: at most 16 MP (`Settings.MaxPhotoMegapixels`), quality 85 (`Settings.PhotoJpegQuality`). EXIF, ICC and XMP are kept. A photo without an EXIF date taken is skipped, because Google would place the copy at the upload date.
 - Check: the copy opens, and proportions (within 1%), orientation and date taken are unchanged. Size must be ≤ 90%, as for videos.
-- No date step for photos: the upload step sets `DateSet` for JPEG copies. Google places them by EXIF date, not at the top of the library, so the date step would not find them anyway. Photo copies don't record `UploadedMediaKey`. The `_compressed` name check in the download step still stops them being compressed twice.
+- No date step for photos: the upload step sets `DateSet` for JPEG copies (a time edited in Google Photos is written into the copy's EXIF before the bin, see "Date and time taken"). Google places them by EXIF date, not at the top of the library, so the date step would not find them anyway. Photo copies don't record `UploadedMediaKey`. The `_compressed` name check in the download step still stops them being compressed twice.
 - ffprobe was considered (owner's question): it can read photo tags, but ffmpeg can't write EXIF into JPEGs, so Magick.NET is used. ffprobe for reading video duration would be a small, separate improvement.
 - Verified: unit tests on Windows (111 passed) and on Linux in WSL Ubuntu 24.04 (72 photo/rule/parser/state tests passed). Not tested on real phone photos or live.
 
 ## Item lifecycle (see `ItemRules.cs`)
-Listed → Downloaded (`DownloadPath`) → Compressed + `Verified` → `OriginalDeleted` → `CompressUploaded` → `DateSet` (+ `UploadedMediaKey`).
+Listed → Downloaded (`DownloadPath`) → Compressed + `Verified` → `TakenAt` read → `OriginalDeleted` → `CompressUploaded` → `DateSet` (+ `UploadedMediaKey`).
 Side exits: `CompressionSkipped` (not worth it / unsupported / own copy) and `FailCount >= 3`. Both leave the original alone.
 
 ## Facts from the owner's state file (2026-10-27)

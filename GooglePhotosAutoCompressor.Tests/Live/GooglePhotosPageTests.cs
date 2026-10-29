@@ -201,7 +201,8 @@ namespace GooglePhotosAutoCompressor.Tests.Live
                 await dialog.First.WaitForAsync();
             });
 
-            foreach (string input in new[] { Selectors.DATE_YEAR_INPUT, Selectors.DATE_MONTH_INPUT, Selectors.DATE_DAY_INPUT })
+            foreach (string input in new[] { Selectors.DATE_YEAR_INPUT, Selectors.DATE_MONTH_INPUT, Selectors.DATE_DAY_INPUT,
+                                             Selectors.DATE_HOUR_INPUT, Selectors.DATE_MINUTES_INPUT })
             {
                 await Expect($"the date dialog to have the field {input}", () => dialog.Locator(input).First.WaitForAsync());
                 string value = await dialog.Locator(input).First.InputValueAsync();
@@ -210,7 +211,13 @@ namespace GooglePhotosAutoCompressor.Tests.Live
             await Expect($"the date dialog to have a save button ({Selectors.DIALOG_DEFAULT_BUTTON})", () =>
                 dialog.Locator(Selectors.DIALOG_DEFAULT_BUTTON).First.WaitForAsync());
 
-            await ExpectScreen("date-dialog", "Is a dialog open for editing the date and time, with separate fields for year, month and day?");
+            await Expect($"the date dialog to show a time zone ({Selectors.TIME_ZONE_BOX}) like 'GMT+01:00'", async () =>
+            {
+                string zone = await dialog.Locator(Selectors.TIME_ZONE_BOX).First.InnerTextAsync();
+                if (TakenTime.ParseOffsetMs(zone) == null) throw new InvalidOperationException($"time zone text is '{zone}'");
+            });
+
+            await ExpectScreen("date-dialog", "Is a dialog open for editing the date and time, with separate fields for year, month, day, hour and minutes, and a time zone?");
 
             // Close without saving, and check nothing changed.
             await Page.Keyboard.PressAsync("Escape");
@@ -218,6 +225,72 @@ namespace GooglePhotosAutoCompressor.Tests.Live
                 dialog.Locator(Selectors.DATE_YEAR_INPUT).First.WaitForAsync(new() { State = WaitForSelectorState.Hidden }));
             string dateAfter = (await (await FirstVisible(Selectors.DATE_TAKEN_PANEL)).GetAttributeAsync("aria-label")) ?? "";
             Assert.Equal(dateBefore, dateAfter);
+        }
+
+        [SkippableFact]
+        public async Task Original_date_time_and_zone_are_read_without_changing_them()
+        {
+            RequireLive();
+            // Same path as the "read date and time" step: a large item from the list, opened by its media key.
+            FileItem? item = null;
+            using CancellationTokenSource cts = new();
+            await LargeFileLocator.EnumearteFiles(Page, (_, i) =>
+            {
+                item ??= i;
+                cts.Cancel();
+                return Task.CompletedTask;
+            }, cts.Token);
+            if (item == null)
+                await Fail("a tile on the large files page", "the scanner found no readable tile");
+
+            (DateTime? takenAt, int? offsetMs) = (null, null);
+            await Expect($"the item to open by its media key ({Selectors.ViewerUrl("<key>")}) and its date dialog to show date, time and time zone", async () =>
+                (takenAt, offsetMs) = await TakenTimeReader.ReadOne(Page, item!.MediaKey));
+
+            _out.WriteLine($"taken: {(takenAt is DateTime t ? TakenTime.Describe(t, offsetMs) : "?")}, list date {item!.Date}");
+            Assert.NotNull(takenAt);
+            Assert.NotNull(offsetMs);
+            Assert.Equal(item.Date, DateOnly.FromDateTime(takenAt!.Value));
+            Assert.False(await Page.Locator(Selectors.DATE_YEAR_INPUT).First.IsVisibleAsync(), "the date dialog is still open");
+
+            // Reading again gives the same value: nothing was saved.
+            (DateTime? again, int? againOffset) = await TakenTimeReader.ReadOne(Page, item.MediaKey);
+            Assert.Equal(takenAt, again);
+            Assert.Equal(offsetMs, againOffset);
+            await ExpectScreen("original-viewer", "Is a single photo or video open in a viewer with an info panel, and no dialog open?");
+        }
+
+        [SkippableFact]
+        public async Task Date_dialog_takes_a_new_time_and_zone_and_cancel_keeps_the_old_ones()
+        {
+            RequireLive();
+            // What the date step types for a copy, but closed with Escape instead of Save.
+            (string fileName, _) = await OpenFirstItemInViewer();
+            ILocator dialog = await DateDialog.Open(Page);
+            (DateTime? before, int? beforeOffset) = await DateDialog.Read(dialog);
+            Assert.NotNull(before);
+            Assert.NotNull(beforeOffset);
+
+            DateTime otherTime = before!.Value.Date.AddHours(before.Value.Hour == 3 ? 4 : 3).AddMinutes(7);
+            int otherOffset = beforeOffset == 19_800_000 ? 32_400_000 : 19_800_000; // GMT+05:30 or GMT+09:00
+            try
+            {
+                await Expect($"typing {TakenTime.Describe(otherTime, otherOffset)} into the date dialog (hour, minutes and time zone list)", () =>
+                    DateDialog.Fill(dialog, DateOnly.FromDateTime(otherTime), otherTime, otherOffset));
+                await ExpectScreen("date-dialog-filled",
+                    $"Does the 'Edit date and time' dialog show the time {otherTime:HH:mm} and the time zone {TakenTime.FormatOffset(otherOffset)}?");
+            }
+            finally
+            {
+                await DateDialog.CloseWithoutSaving(Page, dialog);
+            }
+
+            dialog = await DateDialog.Open(Page);
+            (DateTime? after, int? afterOffset) = await DateDialog.Read(dialog);
+            await DateDialog.CloseWithoutSaving(Page, dialog);
+            _out.WriteLine($"{fileName}: {TakenTime.Describe(before.Value, beforeOffset)} -> typed {TakenTime.Describe(otherTime, otherOffset)} -> after cancel {(after is DateTime a ? TakenTime.Describe(a, afterOffset) : "?")}");
+            Assert.Equal(before, after);
+            Assert.Equal(beforeOffset, afterOffset);
         }
 
         // ---------- helpers ----------

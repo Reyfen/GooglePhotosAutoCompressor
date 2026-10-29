@@ -24,6 +24,15 @@ namespace GooglePhotosAutoCompressor
         public long CompressedSize { get; set; }
         /// <summary>Runs in which the date step looked for the uploaded copy and did not find it.</summary>
         public int DateSetMisses { get; set; }
+        /// <summary>
+        /// Date and time taken of the original as Google Photos shows it (local wall-clock time, to the minute),
+        /// read before the original goes to the bin. The copy gets the same date, time and time zone.
+        /// </summary>
+        public DateTime? TakenAt { get; set; }
+        /// <summary>Time zone of <see cref="TakenAt"/> as a UTC offset in milliseconds (Google's own unit).</summary>
+        public int? TakenOffsetMs { get; set; }
+        /// <summary>Runs in which reading <see cref="TakenAt"/> failed. After a few, the original may go to the bin without it.</summary>
+        public int TakenReadMisses { get; set; }
         /// <summary>Media key of our uploaded copy, so later runs never treat it as a new original.</summary>
         public string? UploadedMediaKey { get; set; }
 

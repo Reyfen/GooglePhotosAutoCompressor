@@ -75,6 +75,50 @@ namespace GooglePhotosAutoCompressor.Tests
         }
 
         [Fact]
+        public void Copy_with_the_same_time_as_google_is_left_as_it_is()
+        {
+            FileItem item = ItemFor(MakeJpeg("photo.jpg"));
+            PhotoCompressor.CompressOne(item, OutDir);
+            DateTime written = File.GetLastWriteTimeUtc(item.CompressPath);
+            DateTime googleTime = TakenTime.ParseExif(DATE_TAKEN)!.Value;
+
+            Assert.True(PhotoCompressor.ApplyTakenTime(item, googleTime, 3_600_000));
+
+            Assert.Equal(written, File.GetLastWriteTimeUtc(item.CompressPath));
+        }
+
+        [Fact]
+        public void Copy_gets_the_time_edited_in_google_photos()
+        {
+            FileItem item = ItemFor(MakeJpeg("rotated.jpg", orientation: Orientation.RightTop));
+            PhotoCompressor.CompressOne(item, OutDir);
+            DateTime edited = new(2019, 12, 31, 23, 45, 0);
+
+            Assert.True(PhotoCompressor.ApplyTakenTime(item, edited, -18_000_000));
+
+            using MagickImage copy = new(item.CompressPath);
+            Assert.Equal("2019:12:31 23:45:00", PhotoCompressor.GetDateTaken(copy));
+            Assert.Equal("-05:00", copy.GetExifProfile()?.GetValue(ExifTag.OffsetTimeOriginal)?.Value);
+            Assert.Equal(Orientation.RightTop, copy.Orientation);
+            Assert.Equal("TestCam", copy.GetExifProfile()?.GetValue(ExifTag.Make)?.Value);
+            Assert.Equal(new FileInfo(item.CompressPath).Length, item.CompressedSize);
+            Assert.Empty(Directory.GetFiles(OutDir, "*.part*"));
+
+            using MagickImage original = new(item.DownloadPath);
+            Assert.Equal(DATE_TAKEN, PhotoCompressor.GetDateTaken(original)); // the download is not touched
+        }
+
+        [Fact]
+        public void Edited_time_cannot_be_applied_without_the_download()
+        {
+            FileItem item = ItemFor(MakeJpeg("photo.jpg"));
+            PhotoCompressor.CompressOne(item, OutDir);
+            File.Delete(item.DownloadPath);
+
+            Assert.False(PhotoCompressor.ApplyTakenTime(item, new DateTime(2019, 12, 31, 23, 45, 0), null));
+        }
+
+        [Fact]
         public void Keeps_size_of_photo_under_the_pixel_limit()
         {
             FileItem item = ItemFor(MakeJpeg("small.jpg", 1600, 1200));

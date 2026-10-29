@@ -10,7 +10,7 @@ namespace GooglePhotosAutoCompressor.Modules
 
             // Look for exactly these items. The old version stopped after 21 unknown tiles,
             // which skipped originals further down the list (and left duplicates after upload).
-            Dictionary<string, FileItem> pending = files.Snapshot().Where(ItemRules.CanDeleteOriginal).ToDictionary(i => i.MediaKey);
+            Dictionary<string, FileItem> pending = files.Snapshot().Where(ItemRules.IsReadyForBin).ToDictionary(i => i.MediaKey);
 
             if (pending.Count == 0)
             {

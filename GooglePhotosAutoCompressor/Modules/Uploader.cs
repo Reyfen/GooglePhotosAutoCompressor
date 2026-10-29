@@ -64,7 +64,8 @@ namespace GooglePhotosAutoCompressor.Modules
         internal static void MarkUploaded(FileItem file)
         {
             file.CompressUploaded = true;
-            // Photo copies keep their EXIF date taken (checked when compressed), so the date step is not needed.
+            // Photo copies carry the original's date taken in EXIF (checked when compressed, corrected before the
+            // bin if it was edited in Google Photos), so Google places them right and the date step is not needed.
             file.DateSet |= PhotoCompressor.IsSupported(file.CompressPath);
         }
 

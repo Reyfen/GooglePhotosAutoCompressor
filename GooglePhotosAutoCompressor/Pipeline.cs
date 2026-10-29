@@ -10,6 +10,7 @@ namespace GooglePhotosAutoCompressor
         SigningIn,
         Downloading,
         Compressing,
+        ReadingDates,
         ConfirmingBin,
         MovingToBin,
         Uploading,
@@ -113,6 +114,9 @@ namespace GooglePhotosAutoCompressor
                         () => Downloader.DownloadUncommresedFiles(page, files, cancellationToken), cancellationToken);
                     await Step(PipelineStage.Compressing, prefix + "Compressing",
                         () => Compressor.CompressFiles(files, ffmpeg, cancellationToken), cancellationToken);
+
+                    await Step(PipelineStage.ReadingDates, prefix + "Reading date and time of the originals",
+                        () => TakenTimeReader.ReadTakenTimes(page, files, cancellationToken), cancellationToken);
 
                     if (await ConfirmBin(files, cancellationToken))
                     {
@@ -223,7 +227,7 @@ namespace GooglePhotosAutoCompressor
 
         private async Task<bool> ConfirmBin(FileItemsData files, CancellationToken cancellationToken)
         {
-            List<FileItem> toBin = files.Snapshot().Where(ItemRules.CanDeleteOriginal).ToList();
+            List<FileItem> toBin = files.Snapshot().Where(ItemRules.IsReadyForBin).ToList();
             if (toBin.Count == 0 || Settings.Current.ConfirmBeforeBin == false)
             {
                 return true;

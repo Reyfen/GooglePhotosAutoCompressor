@@ -95,7 +95,7 @@ namespace GooglePhotosAutoCompressor
             return CompressResult.Failed;
         }
 
-        private static CompressResult Encode(string inputPath, string outputPath)
+        private static CompressResult Encode(string inputPath, string outputPath, DateTime? takenAt = null, int? offsetMs = null)
         {
             using MagickImage image = new(inputPath);
 
@@ -112,6 +112,18 @@ namespace GooglePhotosAutoCompressor
                 image.Resize(new MagickGeometry(width, height) { IgnoreAspectRatio = true });
             }
 
+            if (takenAt is DateTime time && image.GetExifProfile() is IExifProfile exif)
+            {
+                // The original's time as Google Photos shows it (edited there), so the copy lands at the same moment.
+                exif.SetValue(ExifTag.DateTimeOriginal, TakenTime.ToExif(time));
+                if (offsetMs is int ms)
+                {
+                    exif.SetValue(ExifTag.OffsetTimeOriginal, TakenTime.ToExifOffset(ms));
+                }
+
+                image.SetProfile(exif);
+            }
+
             image.Quality = (uint)Settings.Current.PhotoJpegQuality;
             image.Format = MagickFormat.Jpeg;
             image.Write(outputPath);
@@ -121,7 +133,7 @@ namespace GooglePhotosAutoCompressor
         /// <summary>
         /// The copy must open, keep the proportions, orientation and date taken, and be clearly smaller.
         /// </summary>
-        internal static CompressResult Check(string originalPath, string outputPath)
+        internal static CompressResult Check(string originalPath, string outputPath, string? expectedDateTaken = null)
         {
             try
             {
@@ -142,7 +154,7 @@ namespace GooglePhotosAutoCompressor
                     return CompressResult.Failed;
                 }
 
-                if (GetDateTaken(original) != GetDateTaken(output))
+                if ((expectedDateTaken ?? GetDateTaken(original)) != GetDateTaken(output))
                 {
                     Console.WriteLine($"PhotoCompressor: date taken lost for {outputPath}");
                     return CompressResult.Failed;
@@ -173,6 +185,68 @@ namespace GooglePhotosAutoCompressor
 
             double scale = Math.Sqrt((double)maxPixels / pixels);
             return ((uint)Math.Max(1, Math.Floor(width * scale)), (uint)Math.Max(1, Math.Floor(height * scale)));
+        }
+
+        /// <summary>
+        /// Makes the copy's EXIF date taken match the original's time as Google Photos showed it. Only needed when
+        /// that time was edited in Google Photos (the file still has the camera's time). The copy is made again from
+        /// the downloaded original, so it is encoded only once. False when that cannot be done.
+        /// </summary>
+        internal static bool ApplyTakenTime(FileItem file, DateTime takenAt, int? offsetMs)
+        {
+            if (IsSupported(file.CompressPath) == false || File.Exists(file.CompressPath) == false)
+            {
+                return false;
+            }
+
+            if (TakenTime.PhotoKeepsTime(takenAt, ReadDateTaken(file.CompressPath)))
+            {
+                return true;
+            }
+
+            if (File.Exists(file.DownloadPath) == false)
+            {
+                return false;
+            }
+
+            string partPath = Path.ChangeExtension(file.CompressPath, ".part" + Path.GetExtension(file.CompressPath));
+            try
+            {
+                if (Encode(file.DownloadPath, partPath, takenAt, offsetMs) != CompressResult.Ok
+                    || Check(file.DownloadPath, partPath, TakenTime.ToExif(takenAt)) != CompressResult.Ok)
+                {
+                    return false;
+                }
+
+                File.Move(partPath, file.CompressPath, true);
+                file.CompressedSize = new FileInfo(file.CompressPath).Length;
+                Console.WriteLine($"PhotoCompressor: {Path.GetFileName(file.CompressPath)} now has date taken {TakenTime.Describe(takenAt, offsetMs)} (edited in Google Photos).");
+                return true;
+            }
+            catch (Exception e) when (e is MagickException or IOException)
+            {
+                Console.WriteLine($"PhotoCompressor: could not set the date of {file.CompressPath}: {e.Message}");
+                return false;
+            }
+            finally
+            {
+                File.Delete(partPath);
+            }
+        }
+
+        /// <summary>EXIF date taken of a file ("yyyy:MM:dd HH:mm:ss"), or null when it has none or cannot be read.</summary>
+        internal static string? ReadDateTaken(string path)
+        {
+            try
+            {
+                using MagickImage image = new();
+                image.Ping(path);
+                return GetDateTaken(image);
+            }
+            catch (Exception e) when (e is MagickException or IOException)
+            {
+                return null;
+            }
         }
 
         internal static string? GetDateTaken(MagickImage image)

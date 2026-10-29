@@ -235,7 +235,7 @@ public partial class MainViewModel : ObservableObject
             PipelineStage.Preparing or PipelineStage.SigningIn => 0,
             PipelineStage.Downloading => 1,
             PipelineStage.Compressing => 2,
-            PipelineStage.ConfirmingBin or PipelineStage.MovingToBin => 3,
+            PipelineStage.ReadingDates or PipelineStage.ConfirmingBin or PipelineStage.MovingToBin => 3,
             PipelineStage.Uploading => 4,
             PipelineStage.SettingDates or PipelineStage.CleaningUp => 5,
             _ => -1,

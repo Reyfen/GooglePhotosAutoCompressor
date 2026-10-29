@@ -70,6 +70,21 @@ namespace GooglePhotosAutoCompressor
         }
 
         /// <summary>
+        /// The original's date and time must be read from Google Photos before it goes to the bin; afterwards it
+        /// is gone. Only when reading keeps failing does the original go anyway (the copy keeps the file's own time).
+        /// </summary>
+        public static bool NeedsTakenTime(FileItem item)
+        {
+            return CanDeleteOriginal(item) && item.TakenAt == null && item.TakenReadMisses < TakenTime.READ_TRIES;
+        }
+
+        /// <summary>A good copy exists and the original's date and time are known (or could not be read after several tries).</summary>
+        public static bool IsReadyForBin(FileItem item)
+        {
+            return CanDeleteOriginal(item) && NeedsTakenTime(item) == false;
+        }
+
+        /// <summary>
         /// Upload only after the original is in the bin (storage may be full),
         /// otherwise the library ends up with both copies.
         /// </summary>
@@ -79,8 +94,9 @@ namespace GooglePhotosAutoCompressor
         }
 
         /// <summary>
-        /// Copy is (probably) in Google Photos and still needs its date fixed.
-        /// Photo copies carry their EXIF date taken, so they never need it.
+        /// Copy is (probably) in Google Photos and still needs its date and time fixed.
+        /// Photo copies never need it: their EXIF date taken is the original's time (set before the bin, see
+        /// <see cref="PhotoCompressor.ApplyTakenTime"/>), and Google places them by it.
         /// </summary>
         public static bool NeedsDateSet(FileItem item)
         {

@@ -63,14 +63,58 @@ namespace GooglePhotosAutoCompressor.Tests
         [Fact]
         public void Photo_copy_never_needs_the_date_step()
         {
-            // EXIF date taken is kept, so Google places the copy at the right date by itself.
+            // EXIF date taken is the original's, so Google places the copy at the right date and time by itself.
             FileItem photo = Photo(5);
             photo.OriginalDeleted = true;
             photo.Verified = true;
             photo.CompressUploaded = true;
             photo.CompressPath = ExistingFile("p_compressed_1234abcd.jpg");
-
             Assert.False(ItemRules.NeedsDateSet(photo));
+
+            photo.TakenAt = new DateTime(2025, 7, 4, 17, 57, 0);
+            Assert.False(ItemRules.NeedsDateSet(photo));
+        }
+
+        [Fact]
+        public void Original_goes_to_bin_only_after_its_time_was_read()
+        {
+            FileItem item = Video();
+            item.Verified = true;
+            item.CompressPath = ExistingFile("v_compressed_1234abcd.mp4");
+
+            Assert.True(ItemRules.CanDeleteOriginal(item));
+            Assert.True(ItemRules.NeedsTakenTime(item));
+            Assert.False(ItemRules.IsReadyForBin(item)); // the time would be lost with the original
+
+            item.TakenAt = new DateTime(2025, 7, 4, 17, 57, 0);
+            Assert.False(ItemRules.NeedsTakenTime(item));
+            Assert.True(ItemRules.IsReadyForBin(item));
+        }
+
+        [Fact]
+        public void Original_goes_to_bin_without_time_after_repeated_read_failures()
+        {
+            FileItem item = Video();
+            item.Verified = true;
+            item.CompressPath = ExistingFile("v_compressed_1234abcd.mp4");
+
+            item.TakenReadMisses = TakenTime.READ_TRIES - 1;
+            Assert.False(ItemRules.IsReadyForBin(item));
+
+            item.TakenReadMisses = TakenTime.READ_TRIES;
+            Assert.False(ItemRules.NeedsTakenTime(item));
+            Assert.True(ItemRules.IsReadyForBin(item)); // the copy keeps the time stored in the file
+        }
+
+        [Fact]
+        public void Time_is_never_read_without_a_good_copy()
+        {
+            FileItem item = Video();
+            Assert.False(ItemRules.NeedsTakenTime(item));
+            Assert.False(ItemRules.IsReadyForBin(item));
+
+            item.OriginalDeleted = true;
+            Assert.False(ItemRules.NeedsTakenTime(item));
         }
 
         [Fact]

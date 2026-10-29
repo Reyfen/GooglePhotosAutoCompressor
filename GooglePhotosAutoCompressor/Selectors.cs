@@ -28,6 +28,15 @@ namespace GooglePhotosAutoCompressor
         public const string DATE_YEAR_INPUT = "input[aria-label='Year']";
         public const string DATE_MONTH_INPUT = "input[aria-label='Month']";
         public const string DATE_DAY_INPUT = "input[aria-label='Day']";
+        public const string DATE_HOUR_INPUT = "input[aria-label='Hour']";
+        public const string DATE_MINUTES_INPUT = "input[aria-label='Minutes']";
+        /// <summary>Time zone drop-down in the date dialog; its text shows the offset ("GMT+01:00 British Summer Time").</summary>
+        public const string TIME_ZONE_BOX = "div[role='combobox']";
+
+        /// <summary>Time zone list entries carry their UTC offset in milliseconds.</summary>
+        public static string TimeZoneOption(int offsetMs) => $"[role='option'][data-value='{offsetMs}']";
+
+        public static string ViewerUrl(string mediaKey) => $"https://photos.google.com/photo/{mediaKey}?hl={Const.LOCALE}";
 
         public static string TileByMediaKey(string mediaKey) => $"[data-media-key='{mediaKey}']";
     }
