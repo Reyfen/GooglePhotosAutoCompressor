@@ -113,6 +113,10 @@
                   </Border>
                   <TextBlock Grid.Row="1" Grid.Column="10" Classes="stepName" Text="{Binding Steps[5].Name}" Classes.muted="{Binding Steps[5].IsPending}" />
                 </Grid>
+
+                <!-- Can be changed during a run: read when the current batch ends. -->
+                <CheckBox Content="When this batch is done, carry on with the next one" IsChecked="{Binding Settings.RepeatUntilDone}"
+                          ToolTip.Tip="Also on the Settings page. During a run it is used when the current batch ends." />
               </StackPanel>
             </Border>
 
@@ -233,7 +237,8 @@
         </DockPanel>
       </TabItem>
 
-      <!-- SETTINGS -->
+      <!-- SETTINGS: everyday choices first; the rest under "Advanced settings" (closed). During a run only the
+           settings marked "during a run" can change (SettingsViewModel.RunIsGoing explains which and why). -->
       <TabItem Header="Settings">
         <ScrollViewer>
           <StackPanel Spacing="12" Margin="4,0,4,12" DataContext="{Binding Settings}" x:DataType="vm:SettingsViewModel"
@@ -241,143 +246,184 @@
             <StackPanel.Styles>
               <Style Selector="NumericUpDown"><Setter Property="Width" Value="150" /><Setter Property="HorizontalAlignment" Value="Left" /></Style>
               <Style Selector="Grid.row"><Setter Property="Margin" Value="0,6" /></Style>
+              <!-- Says when a change is used if a run is going. -->
+              <Style Selector="TextBlock.live">
+                <Setter Property="FontSize" Value="11" /><Setter Property="Foreground" Value="{DynamicResource AccentBlue}" />
+                <Setter Property="Margin" Value="0,2,0,0" />
+              </Style>
             </StackPanel.Styles>
 
-            <TextBlock Classes="hint" Margin="2,0" Text="Changes are saved straight away and used from the next run. They are locked while a run is going."
-                       IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsIdle}" />
-            <TextBlock Classes="hint" Margin="2,0" Foreground="{DynamicResource WarnAmber}" Text="A run is going: settings are locked until it ends."
-                       IsVisible="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsRunning}" />
+            <TextBlock Classes="hint" Margin="2,0" Text="Changes are saved straight away and used from the next run." IsVisible="{Binding !RunIsGoing}" />
+            <TextBlock Classes="hint" Margin="2,0" Foreground="{DynamicResource WarnAmber}" IsVisible="{Binding RunIsGoing}"
+                       Text="A run is going. Settings marked &quot;during a run&quot; can still be changed; the others are locked until it ends." />
 
-            <StackPanel Spacing="12" IsEnabled="{Binding $parent[Window].((vm:MainViewModel)DataContext).IsIdle}">
-
-              <Border Classes="card">
-                <StackPanel>
-                  <TextBlock Classes="h2" Text="What to compress" />
-                  <Grid Classes="row" ColumnDefinitions="260,*" RowDefinitions="Auto,Auto">
+            <Border Classes="card">
+              <StackPanel>
+                <TextBlock Classes="h2" Text="What to compress" />
+                <Grid Classes="row" ColumnDefinitions="260,*" IsEnabled="{Binding !IsLocked}">
+                  <TextBlock Text="Items" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="24">
                     <CheckBox Content="Videos" IsChecked="{Binding CompressVideos}" />
-                    <StackPanel Grid.Column="1">
-                      <NumericUpDown Value="{Binding MinVideoMbPerSecond}" Minimum="0" Maximum="100" Increment="0.1" FormatString="0.0" IsEnabled="{Binding CompressVideos}" />
-                      <TextBlock Classes="hint" Text="Only videos above this many MB per second of video. Phone videos are usually 2–6 MB/s; 0.8 skips ones that are already small." />
-                    </StackPanel>
-                  </Grid>
-                  <Grid Classes="row" ColumnDefinitions="260,*">
                     <CheckBox Content="Photos (JPEG)" IsChecked="{Binding CompressPhotos}" />
-                    <StackPanel Grid.Column="1">
-                      <NumericUpDown Value="{Binding MinPhotoMb}" Minimum="0" Maximum="1000" Increment="0.5" FormatString="0.0" IsEnabled="{Binding CompressPhotos}" />
-                      <TextBlock Classes="hint" Text="Only photos bigger than this many MB. HEIC, PNG and photos without a date taken are always left alone." />
-                    </StackPanel>
-                  </Grid>
-                </StackPanel>
-              </Border>
+                  </StackPanel>
+                </Grid>
+                <Grid Classes="row" ColumnDefinitions="260,*" IsEnabled="{Binding !IsLocked}">
+                  <TextBlock Text="Video size" VerticalAlignment="Center" />
+                  <ComboBox Grid.Column="1" ItemsSource="{Binding VideoResolutionOptions}" SelectedIndex="{Binding VideoResolutionIndex}"
+                            MinWidth="320" IsEnabled="{Binding CompressVideos}" />
+                </Grid>
+                <TextBlock Classes="hint" Text="Date, time, place and camera details are kept on every copy. Size limits and quality are under Advanced settings." />
+              </StackPanel>
+            </Border>
 
-              <Border Classes="card">
-                <StackPanel>
-                  <TextBlock Classes="h2" Text="Quality" />
-                  <Grid Classes="row" ColumnDefinitions="260,*">
-                    <TextBlock Text="Video size" VerticalAlignment="Center" />
-                    <ComboBox Grid.Column="1" ItemsSource="{Binding VideoResolutionOptions}" SelectedIndex="{Binding VideoResolutionIndex}" MinWidth="320" />
-                  </Grid>
-                  <Grid Classes="row" ColumnDefinitions="260,*">
-                    <TextBlock Text="Video quality" VerticalAlignment="Center" />
-                    <StackPanel Grid.Column="1">
-                      <Slider Minimum="16" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding VideoCrf}" MaxWidth="360" HorizontalAlignment="Left" Width="360" />
-                      <TextBlock Classes="hint" Text="{Binding VideoQualityText}" />
-                    </StackPanel>
-                  </Grid>
-                  <Grid Classes="row" ColumnDefinitions="260,*">
-                    <TextBlock Text="Photo size (megapixels)" VerticalAlignment="Center" />
-                    <StackPanel Grid.Column="1">
-                      <NumericUpDown Value="{Binding MaxPhotoMegapixels}" Minimum="1" Maximum="200" Increment="1" FormatString="0" />
-                      <TextBlock Classes="hint" Text="Bigger photos are shrunk to this. 16 MP is what Google's own &quot;Storage saver&quot; keeps." />
-                    </StackPanel>
-                  </Grid>
-                  <Grid Classes="row" ColumnDefinitions="260,*">
-                    <TextBlock Text="Photo quality" VerticalAlignment="Center" />
-                    <StackPanel Grid.Column="1">
-                      <Slider Minimum="60" Maximum="98" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding PhotoJpegQuality}" Width="360" HorizontalAlignment="Left" />
-                      <TextBlock Classes="hint" Text="{Binding PhotoQualityText}" />
-                    </StackPanel>
-                  </Grid>
-                  <Grid Classes="row" ColumnDefinitions="260,*">
-                    <TextBlock Text="Smallest saving worth it (%)" VerticalAlignment="Center" />
-                    <StackPanel Grid.Column="1">
-                      <NumericUpDown Value="{Binding MinSavingPercent}" Minimum="1" Maximum="90" Increment="5" FormatString="0" />
-                      <TextBlock Classes="hint" Text="If a copy is not at least this much smaller, the original is kept." />
-                    </StackPanel>
-                  </Grid>
-                </StackPanel>
-              </Border>
+            <Border Classes="card">
+              <StackPanel>
+                <TextBlock Classes="h2" Text="Batches" />
+                <Grid Classes="row" ColumnDefinitions="260,*">
+                  <TextBlock Text="Items per batch" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1">
+                    <NumericUpDown Value="{Binding ItemsPerBatch}" Minimum="1" Maximum="1000" Increment="5" FormatString="0" />
+                    <TextBlock Classes="hint" Text="How many items are worked on at once. Each needs disk space for the original and its copy." />
+                    <TextBlock Classes="live" Text="During a run: used from the next batch." />
+                  </StackPanel>
+                </Grid>
+                <Grid Classes="row" ColumnDefinitions="260,*">
+                  <TextBlock Text="After each batch" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1">
+                    <CheckBox Content="Carry on with the next batch until nothing is left" IsChecked="{Binding RepeatUntilDone}" />
+                    <TextBlock Classes="hint" Text="Off: the app stops after each batch so you can check the results." />
+                    <TextBlock Classes="live" Text="During a run: used when the current batch ends (also on the Run page)." />
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </Border>
 
-              <Border Classes="card">
-                <StackPanel>
-                  <TextBlock Classes="h2" Text="How much per run" />
-                  <Grid Classes="row" ColumnDefinitions="260,*">
-                    <TextBlock Text="Items per batch" VerticalAlignment="Center" />
-                    <StackPanel Grid.Column="1">
-                      <NumericUpDown Value="{Binding ItemsPerBatch}" Minimum="1" Maximum="1000" Increment="5" FormatString="0" />
-                      <TextBlock Classes="hint" Text="How many items are worked on at once. Each needs disk space for the original and its copy." />
-                    </StackPanel>
-                  </Grid>
-                  <Grid Classes="row" ColumnDefinitions="260,*">
-                    <TextBlock Text="Keep going" VerticalAlignment="Center" />
-                    <StackPanel Grid.Column="1">
-                      <CheckBox Content="Start the next batch automatically until nothing is left" IsChecked="{Binding RepeatUntilDone}" />
-                    </StackPanel>
-                  </Grid>
-                  <Grid Classes="row" ColumnDefinitions="260,*">
-                    <TextBlock Text="Downloads at the same time" VerticalAlignment="Center" />
-                    <NumericUpDown Grid.Column="1" Value="{Binding ParallelDownloads}" Minimum="1" Maximum="10" Increment="1" FormatString="0" />
-                  </Grid>
-                  <Grid Classes="row" ColumnDefinitions="260,*">
-                    <TextBlock Text="Keep free on disk (GB)" VerticalAlignment="Center" />
-                    <StackPanel Grid.Column="1">
-                      <NumericUpDown Value="{Binding MinFreeDiskGb}" Minimum="0" Maximum="10000" Increment="1" FormatString="0.#" />
-                      <TextBlock Classes="hint" Text="Downloads pause for this run when the disk would get fuller than this." />
-                    </StackPanel>
-                  </Grid>
-                  <Grid Classes="row" ColumnDefinitions="260,*">
-                    <TextBlock Text="Attempts before giving up on an item" VerticalAlignment="Center" />
-                    <StackPanel Grid.Column="1">
-                      <NumericUpDown Value="{Binding MaxFails}" Minimum="1" Maximum="100" Increment="1" FormatString="0" />
-                      <TextBlock Classes="hint" Text="Attempts lost while the internet is down do not count." />
-                    </StackPanel>
-                  </Grid>
-                </StackPanel>
-              </Border>
+            <Border Classes="card">
+              <StackPanel>
+                <TextBlock Classes="h2" Text="Safety and files" />
+                <Grid Classes="row" ColumnDefinitions="260,*">
+                  <TextBlock Text="Before moving to the bin" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1">
+                    <CheckBox Content="Show what will be moved and ask first" IsChecked="{Binding ConfirmBeforeBin}" />
+                    <TextBlock Classes="hint" Text="Originals stay in the Google Photos bin for 60 days, so they can be restored." />
+                    <TextBlock Classes="live" Text="During a run: used from the next time originals go to the bin." />
+                  </StackPanel>
+                </Grid>
+                <Grid Classes="row" ColumnDefinitions="260,*">
+                  <TextBlock Text="When an item is done" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1">
+                    <CheckBox Content="Delete its files from this PC" IsChecked="{Binding DeleteLocalFilesWhenDone}" />
+                    <TextBlock Classes="hint" Text="Off: the downloaded originals stay on this PC as an extra backup (use &quot;Free up disk space&quot; on the Items page later)." />
+                    <TextBlock Classes="live" Text="During a run: used when the current batch ends." />
+                  </StackPanel>
+                </Grid>
+                <Grid Classes="row" ColumnDefinitions="260,*" IsEnabled="{Binding !IsLocked}">
+                  <TextBlock Text="Work folder" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1">
+                    <Grid ColumnDefinitions="*,Auto">
+                      <TextBox Text="{Binding WorkFolder}" Watermark="Downloads/GooglePhotosAutoCompressor" />
+                      <Button Grid.Column="1" Margin="6,0,0,0" Content="Browse…" Command="{Binding BrowseWorkFolderCommand}" />
+                    </Grid>
+                    <TextBlock Classes="hint" Text="{Binding WorkFolderHint}" />
+                  </StackPanel>
+                </Grid>
+              </StackPanel>
+            </Border>
 
-              <Border Classes="card">
-                <StackPanel>
-                  <TextBlock Classes="h2" Text="Safety and files" />
-                  <Grid Classes="row" ColumnDefinitions="260,*">
-                    <TextBlock Text="Before moving to the bin" VerticalAlignment="Center" />
-                    <CheckBox Grid.Column="1" Content="Show what will be moved and ask first" IsChecked="{Binding ConfirmBeforeBin}" />
-                  </Grid>
-                  <Grid Classes="row" ColumnDefinitions="260,*">
-                    <TextBlock Text="When an item is done" VerticalAlignment="Center" />
-                    <StackPanel Grid.Column="1">
-                      <CheckBox Content="Delete its files from this PC" IsChecked="{Binding DeleteLocalFilesWhenDone}" />
-                      <TextBlock Classes="hint" Text="Off: the downloaded originals stay on this PC as an extra backup (use &quot;Free up disk space&quot; on the Items page later)." />
-                    </StackPanel>
-                  </Grid>
-                  <Grid Classes="row" ColumnDefinitions="260,*">
-                    <TextBlock Text="Work folder" VerticalAlignment="Center" />
-                    <StackPanel Grid.Column="1">
-                      <Grid ColumnDefinitions="*,Auto">
-                        <TextBox Text="{Binding WorkFolder}" Watermark="Downloads/GooglePhotosAutoCompressor" />
-                        <Button Grid.Column="1" Margin="6,0,0,0" Content="Browse…" Command="{Binding BrowseWorkFolderCommand}" />
-                      </Grid>
-                      <TextBlock Classes="hint" Text="{Binding WorkFolderHint}" />
-                    </StackPanel>
-                  </Grid>
-                </StackPanel>
-              </Border>
+            <Expander x:Name="AdvancedSettings" Header="Advanced settings" IsExpanded="False" HorizontalAlignment="Stretch">
+              <StackPanel Spacing="12" Margin="0,4,0,0">
+                <TextBlock Classes="hint" Text="Most people never need these. Reset to defaults below puts every setting back." />
 
-              <Grid ColumnDefinitions="Auto,Auto,*">
-                <Button Content="Reset to defaults" Command="{Binding ResetToDefaultsCommand}" />
-                <Button Grid.Column="1" Margin="8,0,0,0" Content="Show the first-start choices again" Command="{Binding ShowSetupAgainCommand}" />
-                <TextBlock Grid.Column="2" Classes="muted" Margin="12,0" VerticalAlignment="Center" Text="{Binding SavedText}" />
-              </Grid>
-            </StackPanel>
+                <Border Classes="card" IsEnabled="{Binding !IsLocked}">
+                  <StackPanel>
+                    <TextBlock Classes="h2" Text="Size limits" />
+                    <Grid Classes="row" ColumnDefinitions="260,*">
+                      <TextBlock Text="Videos above (MB per second)" VerticalAlignment="Center" />
+                      <StackPanel Grid.Column="1">
+                        <NumericUpDown Value="{Binding MinVideoMbPerSecond}" Minimum="0" Maximum="100" Increment="0.1" FormatString="0.0" IsEnabled="{Binding CompressVideos}" />
+                        <TextBlock Classes="hint" Text="Phone videos are usually 2–6 MB/s; 0.8 skips ones that are already small." />
+                      </StackPanel>
+                    </Grid>
+                    <Grid Classes="row" ColumnDefinitions="260,*">
+                      <TextBlock Text="Photos above (MB)" VerticalAlignment="Center" />
+                      <StackPanel Grid.Column="1">
+                        <NumericUpDown Value="{Binding MinPhotoMb}" Minimum="0" Maximum="1000" Increment="0.5" FormatString="0.0" IsEnabled="{Binding CompressPhotos}" />
+                        <TextBlock Classes="hint" Text="HEIC, PNG and photos without a date taken are always left alone." />
+                      </StackPanel>
+                    </Grid>
+                    <Grid Classes="row" ColumnDefinitions="260,*">
+                      <TextBlock Text="Smallest saving worth it (%)" VerticalAlignment="Center" />
+                      <StackPanel Grid.Column="1">
+                        <NumericUpDown Value="{Binding MinSavingPercent}" Minimum="1" Maximum="90" Increment="5" FormatString="0" />
+                        <TextBlock Classes="hint" Text="If a copy is not at least this much smaller, the original is kept." />
+                      </StackPanel>
+                    </Grid>
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="card" IsEnabled="{Binding !IsLocked}">
+                  <StackPanel>
+                    <TextBlock Classes="h2" Text="Quality" />
+                    <Grid Classes="row" ColumnDefinitions="260,*">
+                      <TextBlock Text="Video quality" VerticalAlignment="Center" />
+                      <StackPanel Grid.Column="1">
+                        <Slider Minimum="16" Maximum="30" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding VideoCrf}" Width="360" HorizontalAlignment="Left" />
+                        <TextBlock Classes="hint" Text="{Binding VideoQualityText}" />
+                      </StackPanel>
+                    </Grid>
+                    <Grid Classes="row" ColumnDefinitions="260,*">
+                      <TextBlock Text="Photo size (megapixels)" VerticalAlignment="Center" />
+                      <StackPanel Grid.Column="1">
+                        <NumericUpDown Value="{Binding MaxPhotoMegapixels}" Minimum="1" Maximum="200" Increment="1" FormatString="0" />
+                        <TextBlock Classes="hint" Text="Bigger photos are shrunk to this. 16 MP is what Google's own &quot;Storage saver&quot; keeps." />
+                      </StackPanel>
+                    </Grid>
+                    <Grid Classes="row" ColumnDefinitions="260,*">
+                      <TextBlock Text="Photo quality" VerticalAlignment="Center" />
+                      <StackPanel Grid.Column="1">
+                        <Slider Minimum="60" Maximum="98" TickFrequency="1" IsSnapToTickEnabled="True" Value="{Binding PhotoJpegQuality}" Width="360" HorizontalAlignment="Left" />
+                        <TextBlock Classes="hint" Text="{Binding PhotoQualityText}" />
+                      </StackPanel>
+                    </Grid>
+                  </StackPanel>
+                </Border>
+
+                <Border Classes="card">
+                  <StackPanel>
+                    <TextBlock Classes="h2" Text="Downloads and retries" />
+                    <Grid Classes="row" ColumnDefinitions="260,*">
+                      <TextBlock Text="Downloads at the same time" VerticalAlignment="Center" />
+                      <StackPanel Grid.Column="1">
+                        <NumericUpDown Value="{Binding ParallelDownloads}" Minimum="1" Maximum="10" Increment="1" FormatString="0" />
+                        <TextBlock Classes="live" Text="During a run: used from the next batch." />
+                      </StackPanel>
+                    </Grid>
+                    <Grid Classes="row" ColumnDefinitions="260,*">
+                      <TextBlock Text="Keep free on disk (GB)" VerticalAlignment="Center" />
+                      <StackPanel Grid.Column="1">
+                        <NumericUpDown Value="{Binding MinFreeDiskGb}" Minimum="0" Maximum="10000" Increment="1" FormatString="0.#" />
+                        <TextBlock Classes="hint" Text="Downloads pause for this run when the disk would get fuller than this." />
+                        <TextBlock Classes="live" Text="During a run: used from the next batch." />
+                      </StackPanel>
+                    </Grid>
+                    <Grid Classes="row" ColumnDefinitions="260,*" IsEnabled="{Binding !IsLocked}">
+                      <TextBlock Text="Attempts before giving up on an item" VerticalAlignment="Center" />
+                      <StackPanel Grid.Column="1">
+                        <NumericUpDown Value="{Binding MaxFails}" Minimum="1" Maximum="100" Increment="1" FormatString="0" />
+                        <TextBlock Classes="hint" Text="Attempts lost while the internet is down do not count." />
+                      </StackPanel>
+                    </Grid>
+                  </StackPanel>
+                </Border>
+              </StackPanel>
+            </Expander>
+
+            <Grid ColumnDefinitions="Auto,Auto,*">
+              <Button Content="Reset to defaults" Command="{Binding ResetToDefaultsCommand}" IsEnabled="{Binding !IsLocked}" />
+              <Button Grid.Column="1" Margin="8,0,0,0" Content="Show the first-start choices again" Command="{Binding ShowSetupAgainCommand}"
+                      IsEnabled="{Binding !IsLocked}" />
+              <TextBlock Grid.Column="2" Classes="muted" Margin="12,0" VerticalAlignment="Center" Text="{Binding SavedText}" TextWrapping="Wrap" />
+            </Grid>
           </StackPanel>
         </ScrollViewer>
       </TabItem>

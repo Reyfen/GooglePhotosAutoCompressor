@@ -220,6 +220,52 @@ namespace GooglePhotosAutoCompressor.UiTests
         }
 
         [AvaloniaFact]
+        public void Advanced_settings_start_closed_and_open_on_click()
+        {
+            (MainWindow window, _, _) = Open();
+            ShowTab(window, 2);
+            Expander advanced = window.GetVisualDescendantsOfType<Expander>().Single(e => e.Name == "AdvancedSettings");
+
+            Assert.False(advanced.IsExpanded);
+            Assert.DoesNotContain(window.GetVisualDescendantsOfType<TextBlock>(), t => t.Text == "Photo quality" && t.IsEffectivelyVisible);
+
+            advanced.IsExpanded = true;
+            Dispatcher.UIThread.RunJobs();
+            Screenshot(window, "3b-settings-advanced");
+            Assert.Contains(window.GetVisualDescendantsOfType<TextBlock>(), t => t.Text == "Photo quality" && t.IsEffectivelyVisible);
+        }
+
+        [AvaloniaFact]
+        public void During_a_run_batch_settings_still_change_and_the_rest_is_locked()
+        {
+            (MainWindow window, MainViewModel vm, _) = Open();
+            ShowTab(window, 2);
+            vm.IsRunning = true;
+            Dispatcher.UIThread.RunJobs();
+            Screenshot(window, "3c-settings-during-run");
+
+            CheckBox Box(string text) => window.GetVisualDescendantsOfType<CheckBox>().First(c => c.Content as string == text);
+            Assert.False(Box("Videos").IsEffectivelyEnabled);                                      // what to compress: locked
+            Assert.True(Box("Carry on with the next batch until nothing is left").IsEffectivelyEnabled);
+            Assert.True(Box("Show what will be moved and ask first").IsEffectivelyEnabled);
+            Assert.True(Box("Delete its files from this PC").IsEffectivelyEnabled);
+
+            vm.Settings.RepeatUntilDone = true;
+            vm.Settings.ItemsPerBatch = 30;
+
+            Assert.True(Settings.Current.RepeatUntilDone);     // the running pipeline reads it at the end of the batch
+            Assert.Equal(30, Settings.Current.ItemsPerBatch);  // and this at the next batch's download step
+            Assert.True(Settings.Load(SettingsPath).RepeatUntilDone);
+            Assert.Contains("next batch", vm.Settings.SavedText);
+
+            // The same switch is on the Run page.
+            ShowTab(window, 0);
+            Assert.True(Box("When this batch is done, carry on with the next one").IsChecked);
+            vm.IsRunning = false;
+            Assert.False(vm.Settings.IsLocked);
+        }
+
+        [AvaloniaFact]
         public void Help_page_renders()
         {
             (MainWindow window, _, _) = Open();

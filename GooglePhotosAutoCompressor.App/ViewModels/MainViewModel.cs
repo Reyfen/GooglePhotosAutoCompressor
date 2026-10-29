@@ -137,6 +137,7 @@ public partial class MainViewModel : ObservableObject
 
     public string LogPath => RunLog.CurrentPath ?? RunLog.LOG_DIR;
 
+    partial void OnIsRunningChanged(bool value) => Settings.RunIsGoing = value;
     partial void OnFilterIndexChanged(int value) => RefreshItems();
     partial void OnSearchTextChanged(string value) => RefreshItems();
 

@@ -43,6 +43,19 @@ public partial class SettingsViewModel : ObservableObject
 
     [ObservableProperty] private string _savedText = "";
 
+    /// <summary>
+    /// A run is going (set by the main window). Only the settings the pipeline reads again at each batch or
+    /// item can change then: carry on with the next batch, items per batch, ask before the bin, delete local
+    /// files, parallel downloads and free disk space. The rest (what to compress, limits, quality, attempts,
+    /// work folder) stay locked, so one run never treats items differently or moves its files.
+    /// </summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsLocked))]
+    private bool _runIsGoing;
+
+    /// <summary>For the settings that can't change during a run.</summary>
+    public bool IsLocked => RunIsGoing;
+
     public string[] VideoResolutionOptions { get; } =
     {
         "Half size (e.g. 4K → 1080p, 1080p → 540p)",
@@ -128,7 +141,7 @@ public partial class SettingsViewModel : ObservableObject
         if (e.PropertyName == nameof(SetupDone)) OnPropertyChanged(nameof(ShowSetup));
 
         if (_loading || e.PropertyName is nameof(SavedText) or nameof(VideoQualityText) or nameof(PhotoQualityText) or nameof(WorkFolderHint)
-                or nameof(StopAfterEachBatch) or nameof(ShowSetup))
+                or nameof(StopAfterEachBatch) or nameof(ShowSetup) or nameof(RunIsGoing) or nameof(IsLocked))
         {
             return;
         }
@@ -138,7 +151,7 @@ public partial class SettingsViewModel : ObservableObject
             Settings settings = ToSettings();
             settings.Save(_path);
             Settings.Current = settings;
-            SavedText = "Saved. Used from the next run.";
+            SavedText = RunIsGoing ? "Saved. Used by this run from the next batch." : "Saved. Used from the next run.";
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {
