@@ -15,7 +15,12 @@ namespace GooglePhotosAutoCompressor.Modules
             if (await DateSetter.WaitForAnyVisibleAsync(panels, 3000) == false)
             {
                 await page.Locator(Selectors.OPEN_INFO_BUTTON).First.ClickAsync();
-                await DateSetter.WaitForAnyVisibleAsync(panels, 5000);
+                // Big videos can take a while before the panel shows.
+                if (await DateSetter.WaitForAnyVisibleAsync(panels, 12_000) == false)
+                {
+                    // Seen live: an item that is gone (binned or deleted) keeps a loading spinner and never shows its info.
+                    throw new InvalidOperationException("the item did not load in the viewer (it may be gone from the library)");
+                }
             }
         }
 

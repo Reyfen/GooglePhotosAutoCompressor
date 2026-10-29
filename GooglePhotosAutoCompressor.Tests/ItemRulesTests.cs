@@ -107,6 +107,20 @@ namespace GooglePhotosAutoCompressor.Tests
         }
 
         [Fact]
+        public void Time_is_not_read_for_a_copy_that_is_already_dated()
+        {
+            // Older versions uploaded and dated copies but never binned the original (seen in the owner's state:
+            // 12 items). Their originals did not open in the viewer, and the time would not be used anyway.
+            FileItem item = Video();
+            item.CompressUploaded = true;
+            item.DateSet = true;
+
+            Assert.True(ItemRules.CanDeleteOriginal(item));
+            Assert.False(ItemRules.NeedsTakenTime(item));
+            Assert.True(ItemRules.IsReadyForBin(item)); // the old rule: bin it (or mark it binned if gone)
+        }
+
+        [Fact]
         public void Time_is_never_read_without_a_good_copy()
         {
             FileItem item = Video();

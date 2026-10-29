@@ -75,7 +75,9 @@ namespace GooglePhotosAutoCompressor
         /// </summary>
         public static bool NeedsTakenTime(FileItem item)
         {
-            return CanDeleteOriginal(item) && item.TakenAt == null && item.TakenReadMisses < TakenTime.READ_TRIES;
+            // A copy that is already dated (e.g. uploaded and dated by an older version, whose original was never
+            // binned) never uses the time: reading it would only slow the run, and such originals often no longer open.
+            return CanDeleteOriginal(item) && item.DateSet == false && item.TakenAt == null && item.TakenReadMisses < TakenTime.READ_TRIES;
         }
 
         /// <summary>A good copy exists and the original's date and time are known (or could not be read after several tries).</summary>
