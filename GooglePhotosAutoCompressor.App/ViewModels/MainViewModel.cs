@@ -101,7 +101,7 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsIdle), nameof(StartStopText))]
-    [NotifyCanExecuteChangedFor(nameof(RetryFailedCommand), nameof(FreeDiskSpaceCommand), nameof(CheckSetupCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RetryFailedCommand), nameof(FreeDiskSpaceCommand), nameof(CheckSetupCommand), nameof(CleanWorkFolderCommand))]
     private bool _isRunning;
 
     [ObservableProperty]
@@ -508,7 +508,47 @@ public partial class MainViewModel : ObservableObject
     private Task OpenWorkFolder()
     {
         string dir = global::GooglePhotosAutoCompressor.Settings.Current.WorkFolderOrDefault;
+        Directory.CreateDirectory(dir); // a fresh install has no folder yet
         return _dialogs.Open(dir);
+    }
+
+    /// <summary>
+    /// Settings → Clean: permanently deletes the downloaded originals and compressed copies (not to the Recycle
+    /// Bin), after asking. Copies still waiting to be uploaded, whose originals are already in the Google Photos
+    /// bin, are kept: without them those items could not be finished.
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(IsIdle))]
+    private async Task CleanWorkFolder()
+    {
+        string[] dirs = { FilePaths.DOWNLOAD_DIR, FilePaths.COMPRESS_DIR };
+        FileItemsData? state = File.Exists(_statePath) || File.Exists(_statePath + ".bak") ? new FileItemsData(_statePath) : null;
+        LocalFiles.CleanPlan plan = LocalFiles.PlanClean(state, dirs);
+        if (plan.Delete.Count == 0)
+        {
+            await _dialogs.AskYesNo("Nothing to clean", plan.Keep.Count > 0
+                ? $"Only {plan.Keep.Count} copy(ies) waiting to be uploaded are left; they are kept."
+                : "The Originals and Compressed folders are empty.", "OK", "Close");
+            return;
+        }
+
+        string kept = plan.Keep.Count > 0
+            ? $"{Environment.NewLine}{Environment.NewLine}Kept: {plan.Keep.Count} compressed copy(ies) ({Format.Bytes(plan.KeepBytes)}) still waiting to be uploaded. " +
+              "Their originals are already in the Google Photos bin, so these copies are the only way to finish them."
+            : "";
+        bool ok = await _dialogs.AskYesNo("Delete the work files for good?",
+            $"Permanently deletes {plan.Delete.Count} file(s), {Format.Bytes(plan.DeleteBytes)}, from{Environment.NewLine}" +
+            $"{string.Join(Environment.NewLine, dirs)}{Environment.NewLine}{Environment.NewLine}" +
+            "They do not go to the Recycle Bin and cannot be restored from this PC. Nothing changes in Google Photos. " +
+            "Items not finished yet are downloaded and compressed again by the next run." + kept,
+            "Delete permanently", "Cancel");
+        if (ok == false)
+        {
+            return;
+        }
+
+        (int files, long bytes) = LocalFiles.Clean(state, plan, dirs);
+        SetStatus($"Deleted {files} file(s), {Format.Bytes(bytes)}, from the work folder.");
+        LoadStateForDisplay();
     }
 
     [RelayCommand]

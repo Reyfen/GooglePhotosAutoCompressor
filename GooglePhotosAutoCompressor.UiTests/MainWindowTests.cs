@@ -266,6 +266,45 @@ namespace GooglePhotosAutoCompressor.UiTests
         }
 
         [AvaloniaFact]
+        public async Task Clean_asks_first_then_deletes_work_files_but_keeps_copies_waiting_for_upload()
+        {
+            string work = Path.Combine(_dir, "work");
+            string Make(string relative)
+            {
+                string path = Path.Combine(work, relative);
+                Directory.CreateDirectory(Path.GetDirectoryName(path)!);
+                File.WriteAllText(path, "x");
+                return path;
+            }
+            string original = Make("Originals/a1/A.mp4");
+            string waitingCopy = Make("Compressed/B_compressed_b2.mp4");
+            var state = new FileItemsData(StatePath);
+            state.AddOrGet(new FileItem { MediaKey = "wait", CompressPath = waitingCopy, Verified = true, OriginalDeleted = true });
+            state.Save();
+
+            (MainWindow window, MainViewModel vm, FakeDialogs dialogs) = Open();
+            vm.Settings.WorkFolder = work;
+            ShowTab(window, 2);
+            Assert.Contains(window.GetVisualDescendantsOfType<Button>(), b => b.Content as string == "Open");
+            Assert.Contains(window.GetVisualDescendantsOfType<Button>(), b => b.Content as string == "Clean…");
+
+            dialogs.Answer = false;
+            await vm.CleanWorkFolderCommand.ExecuteAsync(null);
+            Assert.Contains("Delete the work files for good?", dialogs.Asked);
+            Assert.True(File.Exists(original)); // cancelled: nothing deleted
+
+            dialogs.Answer = true;
+            await vm.CleanWorkFolderCommand.ExecuteAsync(null);
+            Assert.False(File.Exists(original));
+            Assert.True(File.Exists(waitingCopy)); // its original is in the Google bin: kept
+            Assert.StartsWith("Deleted 1 file", vm.StatusText);
+
+            vm.IsRunning = true;
+            Assert.False(vm.CleanWorkFolderCommand.CanExecute(null)); // never while a run uses the files
+            vm.IsRunning = false;
+        }
+
+        [AvaloniaFact]
         public void Help_page_renders()
         {
             (MainWindow window, _, _) = Open();

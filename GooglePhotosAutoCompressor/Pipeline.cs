@@ -332,6 +332,100 @@ namespace GooglePhotosAutoCompressor
             return freed;
         }
 
+        /// <summary>What "Clean" would do: files to delete, and copies it must keep.</summary>
+        internal sealed record CleanPlan(IReadOnlyList<string> Delete, long DeleteBytes, IReadOnlyList<string> Keep, long KeepBytes);
+
+        /// <summary>
+        /// Everything in the work folders goes, except copies still waiting to be uploaded whose original is
+        /// already in the Google Photos bin: without them the item could not be finished (data-safety rule).
+        /// </summary>
+        public static CleanPlan PlanClean(FileItemsData? files, params string[] dirs)
+        {
+            HashSet<string> needed = new((files?.Snapshot() ?? Array.Empty<FileItem>())
+                .Where(i => i.OriginalDeleted && i.CompressUploaded == false && string.IsNullOrEmpty(i.CompressPath) == false)
+                .Select(i => Path.GetFullPath(i.CompressPath!)), StringComparer.OrdinalIgnoreCase);
+
+            List<string> delete = new(), keep = new();
+            long deleteBytes = 0, keepBytes = 0;
+            foreach (string dir in dirs.Where(Directory.Exists))
+            {
+                foreach (string file in Directory.EnumerateFiles(dir, "*", SearchOption.AllDirectories))
+                {
+                    long size = new FileInfo(file).Length;
+                    if (needed.Contains(Path.GetFullPath(file)))
+                    {
+                        keep.Add(file);
+                        keepBytes += size;
+                    }
+                    else
+                    {
+                        delete.Add(file);
+                        deleteBytes += size;
+                    }
+                }
+            }
+
+            return new CleanPlan(delete, deleteBytes, keep, keepBytes);
+        }
+
+        /// <summary>
+        /// Deletes the planned files for good (File.Delete does not use the Recycle Bin / trash), removes empty
+        /// folders, and updates the progress file: an item whose checked copy is gone is no longer "compressed",
+        /// so the next run downloads and compresses it again instead of getting stuck. Returns files and bytes deleted.
+        /// </summary>
+        public static (int files, long bytes) Clean(FileItemsData? files, CleanPlan plan, params string[] dirs)
+        {
+            int deleted = 0;
+            long bytes = 0;
+            HashSet<string> gone = new(StringComparer.OrdinalIgnoreCase);
+            foreach (string file in plan.Delete)
+            {
+                try
+                {
+                    long size = new FileInfo(file).Length;
+                    File.Delete(file);
+                    gone.Add(Path.GetFullPath(file));
+                    deleted++;
+                    bytes += size;
+                }
+                catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+                {
+                    Console.WriteLine($"Could not delete {file}: {e.Message}");
+                }
+            }
+
+            foreach (string dir in dirs.Where(Directory.Exists))
+            {
+                // Deepest first, so per-item download folders go before their parent is checked.
+                foreach (string sub in Directory.EnumerateDirectories(dir, "*", SearchOption.AllDirectories).OrderByDescending(d => d.Length))
+                {
+                    if (Directory.EnumerateFileSystemEntries(sub).Any() == false)
+                    {
+                        Directory.Delete(sub);
+                    }
+                }
+            }
+
+            if (files != null)
+            {
+                foreach (FileItem item in files.Snapshot())
+                {
+                    bool copyGone = string.IsNullOrEmpty(item.CompressPath) == false && gone.Contains(Path.GetFullPath(item.CompressPath));
+                    if (copyGone && item.CompressUploaded == false)
+                    {
+                        item.Verified = false;
+                        item.CompressedSize = 0;
+                    }
+                }
+
+                files.Save();
+            }
+
+            Console.WriteLine($"Cleaned the work folders: {deleted} file(s), {bytes / 1024.0 / 1024:F0} MB deleted permanently" +
+                              (plan.Keep.Count > 0 ? $"; kept {plan.Keep.Count} copy(ies) still waiting to be uploaded." : "."));
+            return (deleted, bytes);
+        }
+
         /// <summary>Size of the download and compress folders.</summary>
         public static long CacheSize()
         {

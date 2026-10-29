@@ -327,6 +327,20 @@
                     <TextBlock Classes="hint" Text="{Binding WorkFolderHint}" />
                   </StackPanel>
                 </Grid>
+                <!-- Open works during a run; Clean asks first and is off during a run (files in use). -->
+                <Grid Classes="row" ColumnDefinitions="260,*">
+                  <TextBlock Text="Files in the work folder" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1">
+                    <StackPanel Orientation="Horizontal" Spacing="6">
+                      <Button Content="Open" Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).OpenWorkFolderCommand}"
+                              ToolTip.Tip="Show the work folder in the file manager" />
+                      <Button Content="Clean…" Classes="danger"
+                              Command="{Binding $parent[Window].((vm:MainViewModel)DataContext).CleanWorkFolderCommand}"
+                              ToolTip.Tip="Permanently delete the downloaded originals and compressed copies (asks first)" />
+                    </StackPanel>
+                    <TextBlock Classes="hint" Text="Clean deletes everything in Originals and Compressed for good (no Recycle Bin), except copies still waiting to be uploaded. Google Photos is not changed." />
+                  </StackPanel>
+                </Grid>
               </StackPanel>
             </Border>
 
