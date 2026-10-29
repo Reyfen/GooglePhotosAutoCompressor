@@ -116,6 +116,7 @@ namespace GooglePhotosAutoCompressor.UiTests
             (MainWindow window, MainViewModel vm, _) = Open();
 
             Assert.Equal("Start", vm.StartStopText);
+            Assert.Matches(@"^v\d+\.\d+\.\d+", vm.VersionText); // "v1.0.0", as in the file names
             Assert.Equal(6, vm.Steps.Count);
             Assert.Equal(1, vm.DoneCount);
             Assert.Equal(1, vm.InProgressCount);

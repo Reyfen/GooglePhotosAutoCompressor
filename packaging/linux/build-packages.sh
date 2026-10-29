@@ -1,13 +1,16 @@
 #!/usr/bin/env bash
 # Builds the Linux packages on Linux:
-#   dist/GooglePhotosAutoCompressor-<version>-<arch>.AppImage.tar.gz   (any distro, double-click to run)
-#   dist/google-photos-auto-compressor_<version>_<debarch>.deb          (Debian, Ubuntu, Mint, ...)
+#   dist/GooglePhotosAutoCompressor-v<version>-<arch>.AppImage.tar.gz   (any distro, double-click to run)
+#   dist/google-photos-auto-compressor_v<version>_<debarch>.deb          (Debian, Ubuntu, Mint, ...)
 #
-# Usage: packaging/linux/build-packages.sh [version] [x64|arm64]
+# Usage: packaging/linux/build-packages.sh [v1.0.0] [x64|arm64]   ("1.0.0" works too)
 # Needs: .NET 8 SDK, dpkg-deb, curl or wget. appimagetool is downloaded when missing.
 set -euo pipefail
 
-VERSION="${1:-1.0.0}"
+# File names use "v1.0.0"; the app and the .deb's own Version field must start with a digit ("1.0.0").
+NUMBER="${1:-v1.0.0}"
+NUMBER="${NUMBER#[vV]}"
+VERSION="v$NUMBER"
 ARCH="${2:-x64}"
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 HERE="$ROOT/packaging/linux"
@@ -27,7 +30,7 @@ mkdir -p "$WORK" "$DIST"
 
 echo "== Publishing $RID $VERSION"
 dotnet publish "$ROOT/GooglePhotosAutoCompressor.App" -c Release -r "$RID" --self-contained \
-  -p:Version="$VERSION" -p:DebugType=none -o "$WORK/publish"
+  -p:Version="$NUMBER" -p:DebugType=none -o "$WORK/publish"
 chmod +x "$WORK/publish/$EXE"
 # The Playwright driver ships its own node binary; make sure it stays executable.
 find "$WORK/publish/.playwright" -type f \( -name node -o -name '*.sh' \) -exec chmod +x {} + 2>/dev/null || true
@@ -77,7 +80,7 @@ cp "$HERE/$APP_ID.desktop" "$DEBROOT/usr/share/applications/"
 cp "$HERE/icon-512.png" "$DEBROOT/usr/share/icons/hicolor/512x512/apps/$APP_ID.png"
 cp "$ROOT/LICENSE" "$DEBROOT/usr/share/doc/$APP_ID/copyright"
 INSTALLED_KB="$(du -sk "$DEBROOT" | cut -f1)"
-sed -e "s/@VERSION@/$VERSION/" -e "s/@ARCH@/$DEB_ARCH/" -e "s/@SIZE@/$INSTALLED_KB/" "$HERE/control" > "$DEBROOT/DEBIAN/control"
+sed -e "s/@VERSION@/$NUMBER/" -e "s/@ARCH@/$DEB_ARCH/" -e "s/@SIZE@/$INSTALLED_KB/" "$HERE/control" > "$DEBROOT/DEBIAN/control"
 cp "$HERE/postinst" "$HERE/postrm" "$DEBROOT/DEBIAN/"
 chmod 755 "$DEBROOT/DEBIAN/postinst" "$DEBROOT/DEBIAN/postrm"
 find "$DEBROOT/opt" -type d -exec chmod 755 {} +

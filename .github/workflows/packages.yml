@@ -25,9 +25,9 @@ jobs:
       - id: v
         run: |
           if [[ "$GITHUB_REF" == refs/tags/v* ]]; then
-            echo "version=${GITHUB_REF#refs/tags/v}" >> "$GITHUB_OUTPUT"
+            echo "version=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
           else
-            echo "version=1.0.0-ci.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
+            echo "version=v1.0.0-ci.${GITHUB_RUN_NUMBER}" >> "$GITHUB_OUTPUT"
           fi
 
   windows:

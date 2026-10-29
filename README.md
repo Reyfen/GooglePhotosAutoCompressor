@@ -21,9 +21,9 @@ Get the latest version from the [Releases page](https://github.com/Reyfen/Google
 
 | System | File | How to start |
 |--------|------|--------------|
-| Windows 10/11 | `GooglePhotosAutoCompressor-<version>-win-x64.exe` | Double-click. Nothing to install. |
-| Any Linux | `GooglePhotosAutoCompressor-<version>-x86_64.AppImage.tar.gz` | Unpack, then double-click the `.AppImage`. |
-| Ubuntu, Debian, Mint | `google-photos-auto-compressor_<version>_amd64.deb` | Double-click to install, or `sudo apt install ./google-photos-auto-compressor_*.deb`. |
+| Windows 10/11 | `GooglePhotosAutoCompressor-v1.0.0-win-x64.exe` | Double-click. Nothing to install. |
+| Any Linux | `GooglePhotosAutoCompressor-v1.0.0-x86_64.AppImage.tar.gz` | Unpack, then double-click the `.AppImage`. |
+| Ubuntu, Debian, Mint | `google-photos-auto-compressor_v1.0.0_amd64.deb` | Double-click to install, or `sudo apt install ./google-photos-auto-compressor_*.deb`. |
 
 You also need **Google Chrome**. Without it the app installs Chromium, but Google sign-in may refuse it.
 Videos need **ffmpeg**: the Windows exe includes it, the `.deb` installs it, and the AppImage offers to download it.
@@ -54,7 +54,7 @@ Without a window (terminal or server): `GooglePhotosAutoCompressor --cli` runs o
 
 On Linux, run the `.ps1` scripts with `pwsh` (for example `pwsh ./build.ps1`). Run the app from source with `dotnet run --project GooglePhotosAutoCompressor.App`.
 
-`build.ps1` options: `-Configuration Release`, `-SkipTests`. `publish.ps1` options: `-Version 1.2.0`, `-Runtime win-arm64`.
+`build.ps1` options: `-Configuration Release`, `-SkipTests`. `publish.ps1` options: `-Version v1.2.0`, `-Runtime win-arm64`.
 
 The **Packages** GitHub workflow builds all three files on every push and tests them on clean machines: a fresh Windows VM, a fresh Ubuntu VM (AppImage started as a double-click would, with Chrome), and clean Ubuntu 22.04/24.04, Debian 12 and Fedora 41 containers. Each test runs the setup check, opens the window on a virtual screen and keeps a screenshot. Pushing a tag such as `v1.2.0` publishes a release with the files.
 

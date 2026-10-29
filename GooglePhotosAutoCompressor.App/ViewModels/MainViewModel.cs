@@ -74,6 +74,14 @@ public partial class MainViewModel : ObservableObject
 
     private static string Settings_DEFAULT_PATH => global::GooglePhotosAutoCompressor.Settings.DEFAULT_PATH;
 
+    /// <summary>"v1.0.0" (CI builds: "v1.0.0-ci.12"), without the commit id .NET appends.</summary>
+    public string VersionText => VERSION;
+
+    private static readonly string VERSION = "v" + (typeof(MainViewModel).Assembly
+        .GetCustomAttributes(typeof(System.Reflection.AssemblyInformationalVersionAttribute), false)
+        .OfType<System.Reflection.AssemblyInformationalVersionAttribute>().FirstOrDefault()?.InformationalVersion
+        ?? "0.0.0").Split('+')[0];
+
     public SettingsViewModel Settings { get; }
     public ObservableCollection<StepViewModel> Steps { get; }
     public ObservableCollection<string> LogLines { get; } = new();

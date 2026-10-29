@@ -22,6 +22,7 @@ Robustness pass finished: one commit per fix (`git log dev..fix/robustness`).
 | 13 | Linux: Chromium fallback, profile location, sign-in without timeout | `Modules/Initlizer.cs` |
 | 14 | Prompted ffmpeg download with SHA-256 check | `FfmpegInstaller.cs` |
 | 15 | CI (Windows + Linux), README, LFS pointer guard | `.github/workflows/ci.yml` |
+| 26 | Versions are named `v1.0.0`: file names, release tags and the window header. The number inside the exe and the .deb `Version:` field stays `1.0.0` (both must start with a digit). Scripts accept `1.0.0` or `v1.0.0` | `publish.ps1`, `packaging/linux/build-packages.sh`, `.github/workflows/packages.yml`, `MainViewModel.VersionText` |
 | 25 | First-start page: the main choices (after each batch: stop or carry on; batch size; ask before bin; videos/photos and video size; delete local files; work folder), shown until answered (`Settings.SetupDone`, so older settings files see it once too); says the Settings tab changes them later; Settings has "Show the first-start choices again" | `MainWindow.axaml` (`SetupPage`), `SettingsViewModel` |
 | 24 | All app files in `Downloads/GooglePhotosAutoCompressor` (`progress.json`, `Originals/`, `Compressed/`); files of older versions are moved there once on start, progress kept (`AppFolderMigration`: new state first, then folders, then old state removed; tested for a cut-off move) | `AppFolderMigration.cs`, `Const.APP_DOWNLOADS_PATH`, `FilePaths.cs` |
 | 23 | Date **and time** (and time zone) of each original are read from Google Photos before the bin and given to the copy (see "Date and time taken") | `TakenTime.cs`, `Modules/TakenTimeReader.cs`, `Modules/DateDialog.cs` |
@@ -73,6 +74,7 @@ Before 2026-10-29 the date step typed only year/month/day. A video copy kept its
 - The app uses its own browser profile in `<config>/chrome-profile`, so the owner signs in once more in the app. The live tests still use the old `GooglePhotosAutoCompressor/bin/Debug/net8.0/chrome-profile`.
 
 ## Packages
+- Names: `GooglePhotosAutoCompressor-v1.0.0-win-x64.exe`, `GooglePhotosAutoCompressor-v1.0.0-x86_64.AppImage.tar.gz`, `google-photos-auto-compressor_v1.0.0_amd64.deb`. A `v1.2.0` tag makes a release; other pushes build `v1.0.0-ci.<run>`.
 - Windows: one self-contained single-file exe (~145 MB, ffmpeg and the Playwright driver inside, unpacked to `%TEMP%/.net` on first start). Needs Git LFS locally for the bundled ffmpeg; CI downloads ffmpeg from BtbN instead (saves LFS bandwidth).
 - Linux: self-contained folder in an AppImage (tar.gz keeps the exec bit) and in a .deb (`/opt/google-photos-auto-compressor`, `/usr/bin/google-photos-auto-compressor`, desktop entry and icon). `InvariantGlobalization` = no libicu dependency. The .deb `Recommends: ffmpeg`; the AppImage offers to download it.
 - `<config>` = `Settings.CONFIG_DIR`. On Linux .NET returns "" for LocalApplicationData when `~/.local/share` does not exist; `Settings.LocalAppData()` creates it (found by the package tests: the first CI run wrote to the current folder).

@@ -7,17 +7,21 @@
     or by the "Packages" GitHub workflow, which also tests them on clean machines.
 
 .EXAMPLE
-    ./publish.ps1                    # dist/GooglePhotosAutoCompressor-<version>-win-x64.exe
-    ./publish.ps1 -Version 1.2.0
+    ./publish.ps1                    # dist/GooglePhotosAutoCompressor-v1.0.0-win-x64.exe
+    ./publish.ps1 -Version v1.2.0    # "1.2.0" works too; file names always get the "v"
 #>
 param(
-    [string]$Version = "1.0.0",
+    [string]$Version = "v1.0.0",
     [ValidateSet("win-x64", "win-arm64")]
     [string]$Runtime = "win-x64"
 )
 
 $ErrorActionPreference = "Stop"
 Set-Location $PSScriptRoot
+
+# Names use "v1.2.0"; the exe's own version number must be digits only ("1.2.0").
+$Number = $Version.TrimStart("v", "V")
+$Version = "v$Number"
 
 if (-not (Get-Command dotnet -ErrorAction SilentlyContinue)) {
     Write-Host "The .NET 8 SDK is not installed. Get it from https://dotnet.microsoft.com/download/dotnet/8.0" -ForegroundColor Red
@@ -34,7 +38,7 @@ Remove-Item $out -Recurse -Force -ErrorAction SilentlyContinue
 
 Write-Host "Publishing $Runtime $Version..." -ForegroundColor Cyan
 dotnet publish GooglePhotosAutoCompressor.App -c Release -r $Runtime --self-contained `
-    -p:Version=$Version `
+    -p:Version=$Number `
     -p:PublishSingleFile=true `
     -p:IncludeNativeLibrariesForSelfExtract=true `
     -p:IncludeAllContentForSelfExtract=true `
