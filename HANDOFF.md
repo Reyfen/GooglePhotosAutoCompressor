@@ -22,6 +22,7 @@ Robustness pass finished: one commit per fix (`git log dev..fix/robustness`).
 | 13 | Linux: Chromium fallback, profile location, sign-in without timeout | `Modules/Initlizer.cs` |
 | 14 | Prompted ffmpeg download with SHA-256 check | `FfmpegInstaller.cs` |
 | 15 | CI (Windows + Linux), README, LFS pointer guard | `.github/workflows/ci.yml` |
+| 25 | First-start page: the main choices (after each batch: stop or carry on; batch size; ask before bin; videos/photos and video size; delete local files; work folder), shown until answered (`Settings.SetupDone`, so older settings files see it once too); says the Settings tab changes them later; Settings has "Show the first-start choices again" | `MainWindow.axaml` (`SetupPage`), `SettingsViewModel` |
 | 24 | All app files in `Downloads/GooglePhotosAutoCompressor` (`progress.json`, `Originals/`, `Compressed/`); files of older versions are moved there once on start, progress kept (`AppFolderMigration`: new state first, then folders, then old state removed; tested for a cut-off move) | `AppFolderMigration.cs`, `Const.APP_DOWNLOADS_PATH`, `FilePaths.cs` |
 | 23 | Date **and time** (and time zone) of each original are read from Google Photos before the bin and given to the copy (see "Date and time taken") | `TakenTime.cs`, `Modules/TakenTimeReader.cs`, `Modules/DateDialog.cs` |
 | 22 | Packages: portable Windows exe (`publish.ps1`), AppImage `.tar.gz` + `.deb` (`packaging/linux/build-packages.sh`), `--check` setup check, `Packages` workflow testing them on clean VMs/containers | `publish.ps1`, `packaging/`, `.github/workflows/packages.yml`, `SetupCheck.cs` |
@@ -67,6 +68,7 @@ Before 2026-10-29 the date step typed only year/month/day. A video copy kept its
 - Log: every `Console.WriteLine` goes through `TeeTextWriter` to the window and to `<config>/logs/*.log` (last 30 kept).
 - UX features: safe Stop, six-step progress, per-video ffmpeg progress, space saved + counts, items list with filter/search, retry failed, free up disk space, confirm-before-bin dialog (with "don't ask again"), settings saved instantly and locked during a run, keep PC awake (Windows `SetThreadExecutionState`, Linux `systemd-inhibit`), ask before closing mid-run, single instance (`AppLock`), Check setup, light/dark theme from the OS.
 - `--cli [--yes]` runs one session in a terminal; `--check [--no-browser]` runs the setup check (exit code 0 = OK; the internet result does not count).
+- Radio buttons must not use `GroupName`: a named group spans windows, and in the UI tests (one window per test, each with its own settings) two windows' radios flipped each other forever (hang found with `--blame-hang` + `dotnet-dump`). Radios in one panel group by themselves.
 - UI tests (`GooglePhotosAutoCompressor.UiTests`) use Avalonia.Headless with Skia and save screenshots to `%TEMP%/gpac-ui-screens`.
 - The app uses its own browser profile in `<config>/chrome-profile`, so the owner signs in once more in the app. The live tests still use the old `GooglePhotosAutoCompressor/bin/Debug/net8.0/chrome-profile`.
 

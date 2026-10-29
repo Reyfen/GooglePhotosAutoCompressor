@@ -47,7 +47,18 @@ namespace GooglePhotosAutoCompressor.UiTests
         private static readonly string SCREENS = Path.Combine(Path.GetTempPath(), "gpac-ui-screens");
         private readonly string _dir = Directory.CreateTempSubdirectory("gpac-ui-").FullName;
 
-        public void Dispose() => Directory.Delete(_dir, true);
+        private readonly List<Window> _windows = new();
+
+        public void Dispose()
+        {
+            foreach (Window window in _windows)
+            {
+                window.Close();
+            }
+
+            Dispatcher.UIThread.RunJobs();
+            Directory.Delete(_dir, true);
+        }
 
         private string SettingsPath => Path.Combine(_dir, "settings.json");
         private string StatePath => Path.Combine(_dir, "state.json");
@@ -65,12 +76,19 @@ namespace GooglePhotosAutoCompressor.UiTests
             data.Save();
         }
 
-        private (MainWindow window, MainViewModel vm, FakeDialogs dialogs) Open()
+        /// <param name="firstStart">False: the first-start page was answered earlier (as for most starts).</param>
+        private (MainWindow window, MainViewModel vm, FakeDialogs dialogs) Open(bool firstStart = false)
         {
+            if (firstStart == false && File.Exists(SettingsPath) == false)
+            {
+                new Settings { SetupDone = true }.Save(SettingsPath);
+            }
+
             var dialogs = new FakeDialogs();
             var log = new TeeTextWriter(null, null);
             var vm = new MainViewModel(dialogs, log, SettingsPath, StatePath);
             var window = new MainWindow { DataContext = vm, Width = 1040, Height = 760 };
+            _windows.Add(window);
             window.Show();
             Dispatcher.UIThread.RunJobs();
             return (window, vm, dialogs);
@@ -189,6 +207,48 @@ namespace GooglePhotosAutoCompressor.UiTests
 
             Assert.Contains(dialog.GetVisualDescendantsOfType<Button>(), b => b.Content as string == "Not now");
             Assert.Contains(dialog.GetVisualDescendantsOfType<CheckBox>(), c => c.Content as string == "Don't ask again");
+        }
+
+        [AvaloniaFact]
+        public void First_start_asks_the_main_choices_once_and_says_where_to_change_them()
+        {
+            (MainWindow window, MainViewModel vm, _) = Open(firstStart: true);
+            Border setup = window.GetVisualDescendantsOfType<Border>().Single(b => b.Name == "SetupPage");
+
+            Assert.True(setup.IsVisible);
+            Assert.Contains(window.GetVisualDescendantsOfType<TextBlock>(), t => t.Text?.Contains("change all of this later on the Settings tab") == true);
+            RadioButton stop = window.GetVisualDescendantsOfType<RadioButton>().Single(r => (r.Content as string)!.StartsWith("Stop"));
+            Assert.True(stop.IsChecked); // safe default: stop after each batch
+            Screenshot(window, "0-first-start");
+
+            vm.Settings.RepeatUntilDone = true;
+            Assert.False(stop.IsChecked);
+            vm.Settings.ConfirmBeforeBin = false;
+            vm.Settings.FinishSetupCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+
+            Assert.False(setup.IsVisible);
+            Settings saved = Settings.Load(SettingsPath);
+            Assert.True(saved.SetupDone);
+            Assert.True(saved.RepeatUntilDone);
+            Assert.False(saved.ConfirmBeforeBin);
+
+            // Next start: not shown again. It can be brought back from the Settings page.
+            (MainWindow again, MainViewModel vm2, _) = Open();
+            Assert.False(again.GetVisualDescendantsOfType<Border>().Single(b => b.Name == "SetupPage").IsVisible);
+            vm2.Settings.ShowSetupAgainCommand.Execute(null);
+            Dispatcher.UIThread.RunJobs();
+            Assert.True(again.GetVisualDescendantsOfType<Border>().Single(b => b.Name == "SetupPage").IsVisible);
+        }
+
+        [AvaloniaFact]
+        public void Reset_to_defaults_does_not_bring_back_the_first_start_page()
+        {
+            (_, MainViewModel vm, _) = Open();
+            vm.Settings.ResetToDefaultsCommand.Execute(null);
+
+            Assert.False(vm.Settings.ShowSetup);
+            Assert.True(Settings.Load(SettingsPath).SetupDone);
         }
 
         [AvaloniaFact]

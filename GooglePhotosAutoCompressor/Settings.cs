@@ -80,6 +80,9 @@ namespace GooglePhotosAutoCompressor
         /// <summary>Where downloads and compressed copies are kept. Empty means Downloads/GooglePhotosAutoCompressor.</summary>
         public string WorkFolder { get; set; } = "";
 
+        /// <summary>The first-start page was answered. Missing in older settings files, so they see it once too.</summary>
+        public bool SetupDone { get; set; }
+
         [JsonIgnore]
         public long MinPhotoBytes => (long)(MinPhotoMb * 1024 * 1024);
         [JsonIgnore]

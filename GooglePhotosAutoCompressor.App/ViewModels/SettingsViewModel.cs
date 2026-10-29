@@ -39,6 +39,7 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private bool _confirmBeforeBin;
     [ObservableProperty] private bool _deleteLocalFilesWhenDone;
     [ObservableProperty] private string _workFolder = "";
+    [ObservableProperty] private bool _setupDone;
 
     [ObservableProperty] private string _savedText = "";
 
@@ -88,6 +89,7 @@ public partial class SettingsViewModel : ObservableObject
         ConfirmBeforeBin = ConfirmBeforeBin,
         DeleteLocalFilesWhenDone = DeleteLocalFilesWhenDone,
         WorkFolder = WorkFolder ?? "",
+        SetupDone = SetupDone,
     }.Normalized();
 
     private void Load(Settings s)
@@ -110,6 +112,7 @@ public partial class SettingsViewModel : ObservableObject
         ConfirmBeforeBin = s.ConfirmBeforeBin;
         DeleteLocalFilesWhenDone = s.DeleteLocalFilesWhenDone;
         WorkFolder = s.WorkFolder;
+        SetupDone = s.SetupDone;
         _loading = false;
         Settings.Current = s.Normalized();
     }
@@ -121,8 +124,11 @@ public partial class SettingsViewModel : ObservableObject
         if (e.PropertyName == nameof(VideoCrf)) OnPropertyChanged(nameof(VideoQualityText));
         if (e.PropertyName == nameof(PhotoJpegQuality)) OnPropertyChanged(nameof(PhotoQualityText));
         if (e.PropertyName == nameof(WorkFolder)) OnPropertyChanged(nameof(WorkFolderHint));
+        if (e.PropertyName == nameof(RepeatUntilDone)) OnPropertyChanged(nameof(StopAfterEachBatch));
+        if (e.PropertyName == nameof(SetupDone)) OnPropertyChanged(nameof(ShowSetup));
 
-        if (_loading || e.PropertyName is nameof(SavedText) or nameof(VideoQualityText) or nameof(PhotoQualityText) or nameof(WorkFolderHint))
+        if (_loading || e.PropertyName is nameof(SavedText) or nameof(VideoQualityText) or nameof(PhotoQualityText) or nameof(WorkFolderHint)
+                or nameof(StopAfterEachBatch) or nameof(ShowSetup))
         {
             return;
         }
@@ -140,11 +146,28 @@ public partial class SettingsViewModel : ObservableObject
         }
     }
 
+    /// <summary>The first-start page: shown until it is answered, and again from the Settings page on request.</summary>
+    public bool ShowSetup => SetupDone == false;
+
+    /// <summary>The other choice of "after each batch" on the first-start page.</summary>
+    public bool StopAfterEachBatch
+    {
+        get => RepeatUntilDone == false;
+        set => RepeatUntilDone = value == false;
+    }
+
+    [RelayCommand]
+    private void FinishSetup() => SetupDone = true;
+
+    [RelayCommand]
+    private void ShowSetupAgain() => SetupDone = false;
+
     [RelayCommand]
     private void ResetToDefaults()
     {
-        Load(new Settings());
-        new Settings().Save(_path);
+        Settings defaults = new() { SetupDone = true };
+        Load(defaults);
+        defaults.Save(_path);
         SavedText = "Defaults restored.";
     }
 

@@ -9,6 +9,7 @@
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource PageBrush}">
 
+  <Panel>
   <DockPanel>
     <!-- Header -->
     <Border DockPanel.Dock="Top" Padding="20,14" Background="{DynamicResource CardBrush}"
@@ -323,7 +324,7 @@
                     <TextBlock Text="Work folder" VerticalAlignment="Center" />
                     <StackPanel Grid.Column="1">
                       <Grid ColumnDefinitions="*,Auto">
-                        <TextBox Text="{Binding WorkFolder}" Watermark="Downloads folder" />
+                        <TextBox Text="{Binding WorkFolder}" Watermark="Downloads/GooglePhotosAutoCompressor" />
                         <Button Grid.Column="1" Margin="6,0,0,0" Content="Browse…" Command="{Binding BrowseWorkFolderCommand}" />
                       </Grid>
                       <TextBlock Classes="hint" Text="{Binding WorkFolderHint}" />
@@ -332,9 +333,10 @@
                 </StackPanel>
               </Border>
 
-              <Grid ColumnDefinitions="Auto,*">
+              <Grid ColumnDefinitions="Auto,Auto,*">
                 <Button Content="Reset to defaults" Command="{Binding ResetToDefaultsCommand}" />
-                <TextBlock Grid.Column="1" Classes="muted" Margin="12,0" VerticalAlignment="Center" Text="{Binding SavedText}" />
+                <Button Grid.Column="1" Margin="8,0,0,0" Content="Show the first-start choices again" Command="{Binding ShowSetupAgainCommand}" />
+                <TextBlock Grid.Column="2" Classes="muted" Margin="12,0" VerticalAlignment="Center" Text="{Binding SavedText}" />
               </Grid>
             </StackPanel>
           </StackPanel>
@@ -351,7 +353,7 @@
                 <TextBlock TextWrapping="Wrap" Text="1. Sign in to Google in the Chrome window the app opens (only the first time)." />
                 <TextBlock TextWrapping="Wrap" Text="2. It downloads the biggest items from &quot;Large photos and videos&quot; and makes smaller copies on this PC." />
                 <TextBlock TextWrapping="Wrap" Text="3. Each copy is checked. If it looks wrong or saves too little, the original is kept." />
-                <TextBlock TextWrapping="Wrap" Text="4. Originals go to the Google Photos bin (kept 60 days), then the copies are uploaded and given the original date." />
+                <TextBlock TextWrapping="Wrap" Text="4. Originals go to the Google Photos bin (kept 60 days), then the copies are uploaded and given the original date, time and time zone." />
                 <TextBlock TextWrapping="Wrap" Text="Leave the Chrome window open while it works. You can press Stop, close the app or lose the internet at any time: the next run carries on where it stopped." />
               </StackPanel>
             </Border>
@@ -391,4 +393,102 @@
       </TabItem>
     </TabControl>
   </DockPanel>
+
+  <!-- FIRST START: the few choices that matter most, asked once -->
+  <Border x:Name="SetupPage" Background="{DynamicResource PageBrush}" IsVisible="{Binding Settings.ShowSetup}">
+    <Grid RowDefinitions="*,Auto" DataContext="{Binding Settings}" x:DataType="vm:SettingsViewModel">
+      <!-- Always visible: where to change these later, and the button -->
+      <Border Grid.Row="1" Background="{DynamicResource CardBrush}" BorderBrush="{DynamicResource CardBorderBrush}"
+              BorderThickness="0,1,0,0" Padding="24,12">
+        <Grid ColumnDefinitions="*,Auto">
+          <Button Grid.Column="1" Classes="primary big" Content="Save and continue" Command="{Binding FinishSetupCommand}"
+                  MinWidth="180" HorizontalContentAlignment="Center" VerticalAlignment="Center" />
+          <TextBlock VerticalAlignment="Center" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,16,0"
+                     Text="You can change all of this later on the Settings tab." />
+        </Grid>
+      </Border>
+    <ScrollViewer Grid.Row="0">
+      <StackPanel Spacing="12" Margin="24,20" MaxWidth="760">
+        <StackPanel.Styles>
+          <Style Selector="RadioButton"><Setter Property="Margin" Value="0,2" /></Style>
+          <Style Selector="Border.card > StackPanel"><Setter Property="Spacing" Value="6" /></Style>
+        </StackPanel.Styles>
+
+        <StackPanel Orientation="Horizontal" Spacing="12">
+          <Image Source="avares://GooglePhotosAutoCompressor/Assets/icon.png" Width="48" Height="48" />
+          <StackPanel VerticalAlignment="Center">
+            <TextBlock Text="Welcome! A few choices before you start" FontSize="20" FontWeight="SemiBold" />
+            <TextBlock Classes="muted" TextWrapping="Wrap"
+                       Text="The defaults are safe. Change what you like, then press Save and continue." />
+          </StackPanel>
+        </StackPanel>
+
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="h2" Text="1. After each batch" />
+            <TextBlock Classes="hint" Text="The app works on a few items at a time (a batch): download, compress, move the originals to the bin, upload the copies." />
+            <!-- No GroupName: a named group spans windows, and two windows' radios then flip each other forever.
+                 Radios in the same panel are grouped anyway. -->
+            <StackPanel>
+              <RadioButton IsChecked="{Binding StopAfterEachBatch}"
+                           Content="Stop, so I can check the results (recommended for the first runs)" />
+              <RadioButton IsChecked="{Binding RepeatUntilDone}"
+                           Content="Carry on with the next batch until everything is done" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,6,0,0">
+              <TextBlock Text="Items per batch" VerticalAlignment="Center" />
+              <NumericUpDown Value="{Binding ItemsPerBatch}" Minimum="1" Maximum="1000" Increment="5" FormatString="0" Width="150" />
+            </StackPanel>
+            <TextBlock Classes="hint" Text="Each item needs disk space for its original and its copy until it is finished." />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="h2" Text="2. Before originals go to the bin" />
+            <CheckBox Content="Show me what will be moved and ask first" IsChecked="{Binding ConfirmBeforeBin}" />
+            <TextBlock Classes="hint" Text="Originals stay in the Google Photos bin for 60 days, so they can be restored. Turn this off to let long runs go on unattended." />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="h2" Text="3. What to compress" />
+            <StackPanel Orientation="Horizontal" Spacing="24">
+              <CheckBox Content="Videos" IsChecked="{Binding CompressVideos}" />
+              <CheckBox Content="Photos (JPEG)" IsChecked="{Binding CompressPhotos}" />
+            </StackPanel>
+            <StackPanel Orientation="Horizontal" Spacing="10" Margin="0,4,0,0" IsEnabled="{Binding CompressVideos}">
+              <TextBlock Text="Video size" VerticalAlignment="Center" />
+              <ComboBox ItemsSource="{Binding VideoResolutionOptions}" SelectedIndex="{Binding VideoResolutionIndex}" MinWidth="320" />
+            </StackPanel>
+            <TextBlock Classes="hint" Text="Date, time, place and camera details are kept on every copy." />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card">
+          <StackPanel>
+            <TextBlock Classes="h2" Text="4. Files on this PC" />
+            <CheckBox Content="Delete an item's downloaded original and copy from this PC once it is finished" IsChecked="{Binding DeleteLocalFilesWhenDone}" />
+            <TextBlock Classes="hint" Text="Off: the originals stay on this PC as an extra backup (free the space later on the Items page)." />
+            <Grid ColumnDefinitions="Auto,*,Auto" Margin="0,6,0,0">
+              <TextBlock Text="Kept in" VerticalAlignment="Center" Margin="0,0,10,0" />
+              <TextBox Grid.Column="1" Text="{Binding WorkFolder}" Watermark="Default folder" />
+              <Button Grid.Column="2" Margin="6,0,0,0" Content="Browse…" Command="{Binding BrowseWorkFolderCommand}" />
+            </Grid>
+            <TextBlock Classes="hint" Text="{Binding WorkFolderHint}" />
+          </StackPanel>
+        </Border>
+
+        <Border Classes="card" Background="{DynamicResource LogBrush}">
+          <StackPanel>
+            <TextBlock FontWeight="SemiBold" Text="Changing these later" />
+            <TextBlock TextWrapping="Wrap" Text="Everything here is on the Settings tab, with more options (quality, disk space, retries). Settings → &quot;Show the first-start choices again&quot; brings this page back. The Help tab explains each step." />
+          </StackPanel>
+        </Border>
+      </StackPanel>
+    </ScrollViewer>
+    </Grid>
+  </Border>
+  </Panel>
 </Window>
