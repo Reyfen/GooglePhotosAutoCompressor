@@ -22,6 +22,7 @@ namespace GooglePhotosAutoCompressor.Modules
             for (int i = 0; i < toUpload.Length && cancellationToken.IsCancellationRequested == false; i++)
             {
                 FileItem file = toUpload[i];
+                StepProgress.Report(i, toUpload.Length);
                 DateTime startedAt = DateTime.UtcNow;
                 try
                 {

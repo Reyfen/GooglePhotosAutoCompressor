@@ -52,11 +52,17 @@ public partial class MainViewModel : ObservableObject
             new StepViewModel(3, "Compress"),
             new StepViewModel(4, "Move to bin"),
             new StepViewModel(5, "Upload"),
-            new StepViewModel(6, "Set dates") { HasLineOut = false },
+            new StepViewModel(6, "Set dates"),
         });
 
         log.LineWritten += line => Dispatcher.UIThread.Post(() => AddLogLine(line));
         Compressor.Progress += OnCompressProgress;
+        StepProgress.Changed += fraction => Dispatcher.UIThread.Post(() =>
+        {
+            _stepFraction = fraction;
+            UpdateConnectors();
+        });
+        Connectors = new ObservableCollection<ConnectorViewModel>(Enumerable.Range(0, Steps.Count - 1).Select(_ => new ConnectorViewModel()));
 
         _clock = new DispatcherTimer { Interval = TimeSpan.FromSeconds(1) };
         _clock.Tick += (_, _) => ElapsedText = IsRunning ? $"Running for {DateTime.Now - _startedAt:hh\\:mm\\:ss}" : "";
@@ -83,6 +89,12 @@ public partial class MainViewModel : ObservableObject
         ?? "0.0.0").Split('+')[0];
 
     public SettingsViewModel Settings { get; }
+
+    /// <summary>The bars between the step circles (one fewer than the steps).</summary>
+    public ObservableCollection<ConnectorViewModel> Connectors { get; }
+
+    /// <summary>How far the running step is (0 to 1), from <see cref="StepProgress"/>.</summary>
+    private double _stepFraction;
     public ObservableCollection<StepViewModel> Steps { get; }
     public ObservableCollection<string> LogLines { get; } = new();
     public ObservableCollection<ItemRow> Items { get; } = new();
@@ -295,27 +307,25 @@ public partial class MainViewModel : ObservableObject
             ShowCurrentItem = true;
             CurrentItemProgress = fraction * 100;
             OverallProgress = (2 + fraction) * 100.0 / Steps.Count;
-            UpdateConnectors(fraction);
         });
     }
 
     /// <summary>
-    /// The lines between the step circles: full up to the last finished step, then the line into the
-    /// running step shows its progress (the compress percentage when known, otherwise a moving bar),
-    /// empty after it. Each line is drawn as two halves: the right half of one step and the left half of the next.
+    /// The bars between the step circles: full up to the last finished step, the bar into the running step
+    /// shows how far that step is (<see cref="StepProgress"/>), empty after it.
     /// </summary>
     internal void UpdateConnectors(double? fraction = null)
     {
-        for (int k = 0; k + 1 < Steps.Count; k++)
+        if (fraction is double f)
         {
-            StepViewModel from = Steps[k], to = Steps[k + 1];
-            bool moving = to.IsActive && IsRunning && fraction == null;
-            double filled = to.IsDone ? 1 : to.IsActive ? fraction ?? 0 : 0;
+            _stepFraction = f;
+        }
 
-            from.LineOut = Math.Clamp(filled * 2, 0, 1) * 100;
-            to.LineIn = Math.Clamp(filled * 2 - 1, 0, 1) * 100;
-            from.LineOutMoving = moving;
-            to.LineInMoving = moving;
+        for (int k = 0; k < Connectors.Count; k++)
+        {
+            StepViewModel next = Steps[k + 1];
+            Connectors[k].IsActive = next.IsActive;
+            Connectors[k].Value = next.IsDone ? 100 : next.IsActive ? Math.Clamp(_stepFraction, 0, 1) * 100 : 0;
         }
     }
 

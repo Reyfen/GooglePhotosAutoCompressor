@@ -140,28 +140,34 @@ namespace GooglePhotosAutoCompressor.UiTests
             vm.IsRunning = true;
             vm.Steps[0].State = StepState.Done;
             vm.Steps[1].State = StepState.Done;
-            vm.Steps[2].State = StepState.Active; // compressing, 60 % of the current video
+            vm.Steps[2].State = StepState.Active; // compressing, 60 % through the step
 
             vm.UpdateConnectors(0.6);
 
-            Assert.Equal(100, vm.Steps[0].LineOut);   // sign in → download: done
-            Assert.Equal(100, vm.Steps[1].LineIn);
-            Assert.Equal(100, vm.Steps[1].LineOut);   // download → compress: 60 % = first half full,
-            Assert.Equal(20, vm.Steps[2].LineIn, 6);  // second half 20 %
-            Assert.Equal(0, vm.Steps[2].LineOut);     // after the running step: empty
-            Assert.False(vm.Steps[2].LineInMoving);   // known progress: no animation
+            Assert.Equal(new double[] { 100, 60, 0, 0, 0 }, vm.Connectors.Select(c => c.Value));
+            Assert.Equal(new[] { false, true, false, false, false }, vm.Connectors.Select(c => c.IsActive));
+            Assert.Equal(5, vm.Connectors.Count);
 
-            vm.UpdateConnectors();                   // a step without a known percentage
-            Assert.True(vm.Steps[1].LineOutMoving);
-            Assert.True(vm.Steps[2].LineInMoving);
-            Assert.False(vm.Steps[0].LineOutMoving);
-            vm.UpdateConnectors(0.6);
+            // Every bar sits at the middle height of the circles.
+            Dispatcher.UIThread.RunJobs();
+            var circles = window.GetVisualDescendantsOfType<Border>().Where(b => b.Classes.Contains("step")).ToList();
+            var bars = window.GetVisualDescendantsOfType<ProgressBar>().Where(b => b.Classes.Contains("connector")).ToList();
+            Assert.Equal(6, circles.Count);
+            Assert.Equal(5, bars.Count);
+            double CenterY(Visual v) => v.TranslatePoint(new Point(0, v.Bounds.Height / 2), window)!.Value.Y;
+            foreach (ProgressBar bar in bars)
+            {
+                Assert.Equal(CenterY(circles[0]), CenterY(bar), 1);
+            }
 
             string longLine = "[10/10] ok C:\\Users\\someone\\Downloads\\GooglePhotosAutoCompressor\\Compressed\\PXL_20260613_005715199_compressed_e06f7b84.mp4      48.3 MB -> 12.1 MB";
             vm.LogLines.Add(longLine);
             vm.LogLines.Add("ReadTakenTimes");
             Dispatcher.UIThread.RunJobs();
             Screenshot(window, "1b-run-progress");
+            Application.Current!.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Dark;
+            Screenshot(window, "1c-run-progress-dark");
+            Application.Current.RequestedThemeVariant = Avalonia.Styling.ThemeVariant.Default;
 
             TextBlock line = window.GetVisualDescendantsOfType<TextBlock>().Single(t => t.Text == longLine);
             Assert.True(line.Bounds.Height > line.FontSize * 2, "a long log line should wrap onto more lines");

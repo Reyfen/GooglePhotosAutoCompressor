@@ -18,6 +18,7 @@ namespace GooglePhotosAutoCompressor.Modules
             }
 
             List<FileItem> selected = new();
+            int total = pending.Count;
             using CancellationTokenSource cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
             bool sawWholeList = await LargeFileLocator.EnumearteFiles(page, SelectTile, cts.Token);
 
@@ -81,6 +82,8 @@ namespace GooglePhotosAutoCompressor.Modules
                 await tile.ClickAsync();
                 await Task.Delay(100);
                 selected.Add(stored);
+                // Selecting is most of the time (the list is scrolled); the bin click itself is quick.
+                StepProgress.Report(selected.Count * 0.9, total);
 
                 if (pending.Count == 0)
                 {

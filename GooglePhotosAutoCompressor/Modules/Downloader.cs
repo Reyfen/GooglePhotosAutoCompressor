@@ -28,6 +28,10 @@ namespace GooglePhotosAutoCompressor.Modules
                 return;
             }
 
+            // Progress: finished downloads of the free places in this batch (the scan may find fewer).
+            int places = settings.ItemsPerBatch - filesToFinishProcessing;
+            int finished = 0;
+
             try
             {
                 await LargeFileLocator.EnumearteFiles(page, HandleFileItem, cts.Token);
@@ -164,6 +168,7 @@ namespace GooglePhotosAutoCompressor.Modules
                     finally
                     {
                         semaphore.Release();
+                        StepProgress.Report(Interlocked.Increment(ref finished), places);
                     }
                 }));
 

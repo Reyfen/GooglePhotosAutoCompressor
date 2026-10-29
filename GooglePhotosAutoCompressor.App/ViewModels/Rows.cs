@@ -23,15 +23,18 @@ public partial class StepViewModel : ObservableObject
     public bool IsDone => State == StepState.Done;
     public bool IsPending => State == StepState.Pending;
     public string Badge => State == StepState.Done ? "✓" : Number.ToString();
+}
 
-    // The line to the previous step (left half) and to the next step (right half). Two halves make one
-    // connector; see MainViewModel.UpdateConnectors.
-    public bool HasLineIn => Number > 1;
-    public bool HasLineOut { get; init; } = true;
-    [ObservableProperty] private double _lineIn;
-    [ObservableProperty] private bool _lineInMoving;
-    [ObservableProperty] private double _lineOut;
-    [ObservableProperty] private bool _lineOutMoving;
+/// <summary>
+/// The small bar between two step circles: full once the step after it is done, the running step's
+/// progress while that step runs, empty before. See MainViewModel.UpdateConnectors.
+/// </summary>
+public partial class ConnectorViewModel : ObservableObject
+{
+    /// <summary>0 to 100.</summary>
+    [ObservableProperty] private double _value;
+    /// <summary>Leads into the running step (drawn in blue, the done ones in green).</summary>
+    [ObservableProperty] private bool _isActive;
 }
 
 public enum StepState

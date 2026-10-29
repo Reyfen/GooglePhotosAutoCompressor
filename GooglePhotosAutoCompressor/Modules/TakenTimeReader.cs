@@ -13,9 +13,12 @@ namespace GooglePhotosAutoCompressor.Modules
         {
             Console.WriteLine("\n===\nReadTakenTimes\n===\n");
 
-            foreach (FileItem item in files.Snapshot().Where(ItemRules.NeedsTakenTime))
+            FileItem[] toRead = files.Snapshot().Where(ItemRules.NeedsTakenTime).ToArray();
+            for (int i = 0; i < toRead.Length; i++)
             {
+                FileItem item = toRead[i];
                 cancellationToken.ThrowIfCancellationRequested();
+                StepProgress.Report(i, toRead.Length);
 
                 try
                 {

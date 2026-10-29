@@ -13,6 +13,7 @@
           <SolidColorBrush x:Key="CardBorderBrush">#E1E5EC</SolidColorBrush>
           <SolidColorBrush x:Key="MutedBrush">#5F6B7A</SolidColorBrush>
           <SolidColorBrush x:Key="StepPendingBrush">#D5DAE2</SolidColorBrush>
+          <SolidColorBrush x:Key="ConnectorBorderBrush">#B4BCC8</SolidColorBrush>
           <SolidColorBrush x:Key="LogBrush">#F7F8FA</SolidColorBrush>
         </ResourceDictionary>
         <ResourceDictionary x:Key="Dark">
@@ -21,6 +22,7 @@
           <SolidColorBrush x:Key="CardBorderBrush">#30343B</SolidColorBrush>
           <SolidColorBrush x:Key="MutedBrush">#A0A8B4</SolidColorBrush>
           <SolidColorBrush x:Key="StepPendingBrush">#3A3F47</SolidColorBrush>
+          <SolidColorBrush x:Key="ConnectorBorderBrush">#121417</SolidColorBrush>
           <SolidColorBrush x:Key="LogBrush">#1B1D21</SolidColorBrush>
         </ResourceDictionary>
       </ResourceDictionary.ThemeDictionaries>

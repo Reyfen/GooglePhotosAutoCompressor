@@ -186,6 +186,7 @@ namespace GooglePhotosAutoCompressor
             {
                 cancellationToken.ThrowIfCancellationRequested();
                 Stage(stage, message);
+                StepProgress.Report(0);
 
                 try
                 {

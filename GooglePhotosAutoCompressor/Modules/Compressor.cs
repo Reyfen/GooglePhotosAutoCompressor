@@ -26,6 +26,10 @@ namespace GooglePhotosAutoCompressor.Modules
             for (int i = 0; i < toCompress.Length && cancellationToken.IsCancellationRequested == false; i++)
             {
                 FileItem file = toCompress[i];
+                // Step progress: finished files plus the share of the current one (ffmpeg reports it).
+                int index = i;
+                void OnFile(FileItem f, double fraction) => StepProgress.Report(index + fraction, toCompress.Length);
+                Progress += OnFile;
                 CompressResult result;
                 try
                 {
@@ -36,6 +40,11 @@ namespace GooglePhotosAutoCompressor.Modules
                     // Stopped by the user. The half-written copy is already deleted; the next run starts it again.
                     Console.WriteLine($"Compressor: stopped while compressing {file.DownloadPath}");
                     break;
+                }
+                finally
+                {
+                    Progress -= OnFile;
+                    StepProgress.Report(i + 1, toCompress.Length);
                 }
 
                 filesData.Save();

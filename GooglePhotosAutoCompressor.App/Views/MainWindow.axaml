@@ -52,73 +52,67 @@
                   <TextBlock Grid.Column="1" Classes="muted" Text="{Binding ElapsedText}" VerticalAlignment="Center" Margin="12,0,0,0" />
                 </Grid>
 
-                <ProgressBar Value="{Binding OverallProgress}" IsIndeterminate="{Binding OverallIndeterminate}"
-                             IsVisible="{Binding IsRunning}" Height="8" CornerRadius="4" />
+                <!-- Which file is being compressed; the step bar below shows the step's progress. -->
+                <TextBlock IsVisible="{Binding ShowCurrentItem}" Classes="muted" FontSize="12" Text="{Binding CurrentItemText}" TextTrimming="CharacterEllipsis" />
 
-                <StackPanel IsVisible="{Binding ShowCurrentItem}" Spacing="4">
-                  <TextBlock Classes="muted" FontSize="12" Text="{Binding CurrentItemText}" TextTrimming="CharacterEllipsis" />
-                  <ProgressBar Value="{Binding CurrentItemProgress}" Height="4" ShowProgressText="False" />
-                </StackPanel>
-
-                <!-- Steps -->
-                <ItemsControl ItemsSource="{Binding Steps}" Margin="0,6,0,0">
-                  <ItemsControl.ItemsPanel>
-                    <ItemsPanelTemplate><UniformGrid Rows="1" /></ItemsPanelTemplate>
-                  </ItemsControl.ItemsPanel>
-                  <ItemsControl.ItemTemplate>
-                    <DataTemplate x:DataType="vm:StepViewModel">
-                      <!-- Left and right line halves join the circles into one track; see MainViewModel.UpdateConnectors. -->
-                      <Grid ColumnDefinitions="*,Auto,*" RowDefinitions="34,Auto">
-                        <Grid.Styles>
-                          <!-- Square ends, so the two halves of a line meet without a gap. -->
-                          <Style Selector="ProgressBar.line">
-                            <Setter Property="MinWidth" Value="0" />
-                            <Setter Property="Height" Value="4" />
-                            <Setter Property="MinHeight" Value="4" />
-                            <Setter Property="CornerRadius" Value="0" />
-                            <Setter Property="Background" Value="{DynamicResource StepPendingBrush}" />
-                            <Setter Property="Foreground" Value="{DynamicResource DoneGreen}" />
-                          </Style>
-                          <!-- A step without a known percentage: its line pulses. (An indeterminate ProgressBar
-                               left stray stripes behind when it switched back to a value.) -->
-                          <Style Selector="Border.pulse">
-                            <Setter Property="Height" Value="4" />
-                            <Setter Property="Background" Value="{DynamicResource AccentBlue}" />
-                            <Style.Animations>
-                              <Animation Duration="0:0:1.4" IterationCount="Infinite">
-                                <KeyFrame Cue="0%"><Setter Property="Opacity" Value="0.15" /></KeyFrame>
-                                <KeyFrame Cue="50%"><Setter Property="Opacity" Value="0.9" /></KeyFrame>
-                                <KeyFrame Cue="100%"><Setter Property="Opacity" Value="0.15" /></KeyFrame>
-                              </Animation>
-                            </Style.Animations>
-                          </Style>
-                        </Grid.Styles>
-                        <Panel Margin="0,0,6,0" VerticalAlignment="Center" IsVisible="{Binding HasLineIn}">
-                          <ProgressBar Classes="line" Value="{Binding LineIn}" />
-                          <Border Classes="pulse" IsVisible="{Binding LineInMoving}" />
-                        </Panel>
-                        <Panel Grid.Column="2" Margin="6,0,0,0" VerticalAlignment="Center" IsVisible="{Binding HasLineOut}">
-                          <ProgressBar Classes="line" Value="{Binding LineOut}" />
-                          <Border Classes="pulse" IsVisible="{Binding LineOutMoving}" />
-                        </Panel>
-                      <StackPanel Grid.Column="1" Grid.RowSpan="2" HorizontalAlignment="Center" Spacing="6">
-                        <Border Width="34" Height="34" CornerRadius="17" HorizontalAlignment="Center"
-                                Background="{DynamicResource StepPendingBrush}"
-                                Classes.active="{Binding IsActive}" Classes.done="{Binding IsDone}">
-                          <Border.Styles>
-                            <Style Selector="Border.active"><Setter Property="Background" Value="{DynamicResource AccentBlue}" /></Style>
-                            <Style Selector="Border.done"><Setter Property="Background" Value="{DynamicResource DoneGreen}" /></Style>
-                          </Border.Styles>
-                          <TextBlock Text="{Binding Badge}" HorizontalAlignment="Center" VerticalAlignment="Center"
-                                     FontWeight="SemiBold" Foreground="White" />
-                        </Border>
-                        <TextBlock Text="{Binding Name}" HorizontalAlignment="Center" FontSize="12"
-                                   Classes.muted="{Binding IsPending}" />
-                      </StackPanel>
-                      </Grid>
-                    </DataTemplate>
-                  </ItemsControl.ItemTemplate>
-                </ItemsControl>
+                <!-- Steps: circles with small bars between them, all in one row so the bars sit at the circles' middle.
+                     A bar is full once the step after it is done and shows the running step's progress while it runs
+                     (MainViewModel.UpdateConnectors). Label columns have a minimum width so the circles are evenly spread. -->
+                <Grid ColumnDefinitions="Auto,*,Auto,*,Auto,*,Auto,*,Auto,*,Auto" RowDefinitions="34,Auto" Margin="0,6,0,0">
+                  <Grid.Styles>
+                    <Style Selector="Border.step">
+                      <Setter Property="Width" Value="34" /><Setter Property="Height" Value="34" /><Setter Property="CornerRadius" Value="17" />
+                      <Setter Property="HorizontalAlignment" Value="Center" /><Setter Property="Background" Value="{DynamicResource StepPendingBrush}" />
+                    </Style>
+                    <Style Selector="Border.step.active"><Setter Property="Background" Value="{DynamicResource AccentBlue}" /></Style>
+                    <Style Selector="Border.step.done"><Setter Property="Background" Value="{DynamicResource DoneGreen}" /></Style>
+                    <Style Selector="Border.step > TextBlock">
+                      <Setter Property="HorizontalAlignment" Value="Center" /><Setter Property="VerticalAlignment" Value="Center" />
+                      <Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Foreground" Value="White" />
+                    </Style>
+                    <Style Selector="TextBlock.stepName">
+                      <Setter Property="HorizontalAlignment" Value="Center" /><Setter Property="FontSize" Value="12" />
+                      <Setter Property="Margin" Value="0,6,0,0" /><Setter Property="MinWidth" Value="72" /><Setter Property="TextAlignment" Value="Center" />
+                    </Style>
+                    <!-- The small bar between two circles, outlined like a track. -->
+                    <Style Selector="ProgressBar.connector">
+                      <Setter Property="MinWidth" Value="0" /><Setter Property="Height" Value="8" /><Setter Property="MinHeight" Value="8" />
+                      <Setter Property="Margin" Value="8,0" /><Setter Property="VerticalAlignment" Value="Center" /><Setter Property="CornerRadius" Value="4" />
+                      <Setter Property="BorderThickness" Value="1" /><Setter Property="BorderBrush" Value="{DynamicResource ConnectorBorderBrush}" />
+                      <Setter Property="Background" Value="{DynamicResource StepPendingBrush}" /><Setter Property="Foreground" Value="{DynamicResource DoneGreen}" />
+                    </Style>
+                    <Style Selector="ProgressBar.connector.active"><Setter Property="Foreground" Value="{DynamicResource AccentBlue}" /></Style>
+                  </Grid.Styles>
+                  <Border Grid.Column="0" Classes="step" Classes.active="{Binding Steps[0].IsActive}" Classes.done="{Binding Steps[0].IsDone}">
+                    <TextBlock Text="{Binding Steps[0].Badge}" />
+                  </Border>
+                  <TextBlock Grid.Row="1" Grid.Column="0" Classes="stepName" Text="{Binding Steps[0].Name}" Classes.muted="{Binding Steps[0].IsPending}" />
+                  <ProgressBar Grid.Column="1" Classes="connector" Classes.active="{Binding Connectors[0].IsActive}" Value="{Binding Connectors[0].Value}" />
+                  <Border Grid.Column="2" Classes="step" Classes.active="{Binding Steps[1].IsActive}" Classes.done="{Binding Steps[1].IsDone}">
+                    <TextBlock Text="{Binding Steps[1].Badge}" />
+                  </Border>
+                  <TextBlock Grid.Row="1" Grid.Column="2" Classes="stepName" Text="{Binding Steps[1].Name}" Classes.muted="{Binding Steps[1].IsPending}" />
+                  <ProgressBar Grid.Column="3" Classes="connector" Classes.active="{Binding Connectors[1].IsActive}" Value="{Binding Connectors[1].Value}" />
+                  <Border Grid.Column="4" Classes="step" Classes.active="{Binding Steps[2].IsActive}" Classes.done="{Binding Steps[2].IsDone}">
+                    <TextBlock Text="{Binding Steps[2].Badge}" />
+                  </Border>
+                  <TextBlock Grid.Row="1" Grid.Column="4" Classes="stepName" Text="{Binding Steps[2].Name}" Classes.muted="{Binding Steps[2].IsPending}" />
+                  <ProgressBar Grid.Column="5" Classes="connector" Classes.active="{Binding Connectors[2].IsActive}" Value="{Binding Connectors[2].Value}" />
+                  <Border Grid.Column="6" Classes="step" Classes.active="{Binding Steps[3].IsActive}" Classes.done="{Binding Steps[3].IsDone}">
+                    <TextBlock Text="{Binding Steps[3].Badge}" />
+                  </Border>
+                  <TextBlock Grid.Row="1" Grid.Column="6" Classes="stepName" Text="{Binding Steps[3].Name}" Classes.muted="{Binding Steps[3].IsPending}" />
+                  <ProgressBar Grid.Column="7" Classes="connector" Classes.active="{Binding Connectors[3].IsActive}" Value="{Binding Connectors[3].Value}" />
+                  <Border Grid.Column="8" Classes="step" Classes.active="{Binding Steps[4].IsActive}" Classes.done="{Binding Steps[4].IsDone}">
+                    <TextBlock Text="{Binding Steps[4].Badge}" />
+                  </Border>
+                  <TextBlock Grid.Row="1" Grid.Column="8" Classes="stepName" Text="{Binding Steps[4].Name}" Classes.muted="{Binding Steps[4].IsPending}" />
+                  <ProgressBar Grid.Column="9" Classes="connector" Classes.active="{Binding Connectors[4].IsActive}" Value="{Binding Connectors[4].Value}" />
+                  <Border Grid.Column="10" Classes="step" Classes.active="{Binding Steps[5].IsActive}" Classes.done="{Binding Steps[5].IsDone}">
+                    <TextBlock Text="{Binding Steps[5].Badge}" />
+                  </Border>
+                  <TextBlock Grid.Row="1" Grid.Column="10" Classes="stepName" Text="{Binding Steps[5].Name}" Classes.muted="{Binding Steps[5].IsPending}" />
+                </Grid>
               </StackPanel>
             </Border>
 

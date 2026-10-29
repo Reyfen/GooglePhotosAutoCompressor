@@ -40,6 +40,7 @@ namespace GooglePhotosAutoCompressor.Modules
             // New uploads sit at the top of "Recently added". Give up after this many other items in a row
             // (photos synced from a phone during the run also land there, so allow some slack).
             int maxMissesInRow = 20 + pending.Count;
+            int toFind = pending.Count;
             int missesInRow = 0;
 
             for (int i = 0; i < 10_000 && pending.Count > 0 && missesInRow < maxMissesInRow && cancellationToken.IsCancellationRequested == false; i++)
@@ -72,6 +73,7 @@ namespace GooglePhotosAutoCompressor.Modules
                         file.DateSet = true;
                         file.DateSetMisses = 0;
                         files.Save();
+                        StepProgress.Report(toFind - pending.Count, toFind);
 
                         string wanted = file.TakenAt is DateTime t ? TakenTime.Describe(t, file.TakenOffsetMs) : $"{file.Date:d MMM yyyy} (time kept from the file)";
                         Console.WriteLine($"DateSetter: {fileName}: {(alreadyRight ? "already" : "set to")} {wanted}");
