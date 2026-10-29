@@ -135,7 +135,7 @@ Side exits: `CompressionSkipped` (not worth it / unsupported / own copy) and `Fa
   - Upload detection (`Selectors.UPLOAD_PROGRESS`).
   - The scan stops at the end of the list.
   - The 12 duplicates are binned.
-- **Copy placement after upload.** The date step expects new uploads at the top of the library, which matched old runs. ffmpeg always copied `creation_time`; now `+use_metadata_tags` copies more tags. If Google starts placing copies at their original date, the date step will not find them. They then stay "in progress" and block new batches once there are 10.
+- **Copy placement after upload: happened, fixed 2026-10-29.** In the owner's first live run (10 videos) the copies kept their creation time, so Google filed them at their original dates and the date step (which looked at the top of the library) found none. The date step now starts from "Recently added" (`Selectors.RECENTLY_ADDED_URL`, by upload time), where all 10 were the newest items. Checked read-only: every copy already showed exactly its original's date, time and zone, so the step now reads the dialog first and only saves when something differs (`TakenTime.AlreadyShown`). Not yet seen: the next app run marking those 10 as done.
 - **HDR (10-bit) videos.** Colours after libx264 are not checked.
 - **Storage-full upload errors.** Google's error dialog is not detected; such files stay unconfirmed and are retried.
 

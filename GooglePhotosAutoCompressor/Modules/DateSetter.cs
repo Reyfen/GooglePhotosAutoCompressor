@@ -22,7 +22,9 @@ namespace GooglePhotosAutoCompressor.Modules
                 return;
             }
 
-            await page.GotoAsync($"https://photos.google.com/?hl={Const.LOCALE}");
+            // "Recently added" lists items by upload time, newest first. The library itself sorts by date taken,
+            // and copies that keep their creation time land at their original date there (seen live 2026-10-29).
+            await page.GotoAsync(Selectors.RECENTLY_ADDED_URL);
             await page.Locator(Selectors.LIBRARY_FIRST_ITEM).First.ClickAsync();
 
             ILocator fileNamePanels = page.Locator(Selectors.FILE_NAME_PANEL);
@@ -35,7 +37,7 @@ namespace GooglePhotosAutoCompressor.Modules
 
             ILocator nextPhotoButton = page.Locator(Selectors.NEXT_PHOTO_BUTTON);
 
-            // New uploads sit at the top of the library. Give up after this many other items in a row
+            // New uploads sit at the top of "Recently added". Give up after this many other items in a row
             // (photos synced from a phone during the run also land there, so allow some slack).
             int maxMissesInRow = 20 + pending.Count;
             int missesInRow = 0;
@@ -55,14 +57,24 @@ namespace GooglePhotosAutoCompressor.Modules
                         missesInRow = 0;
 
                         ILocator dialog = await DateDialog.Open(page);
-                        await DateDialog.Save(page, dialog, file.Date, file.TakenAt, file.TakenOffsetMs);
+                        (DateTime? shown, int? shownOffset) = await DateDialog.Read(dialog);
+                        bool alreadyRight = TakenTime.AlreadyShown(shown, shownOffset, file.Date, file.TakenAt, file.TakenOffsetMs);
+                        if (alreadyRight)
+                        {
+                            // Usual case: Google read the creation time kept in the file. Nothing to save.
+                            await DateDialog.CloseWithoutSaving(page, dialog);
+                        }
+                        else
+                        {
+                            await DateDialog.Save(page, dialog, file.Date, file.TakenAt, file.TakenOffsetMs);
+                        }
 
                         file.DateSet = true;
                         file.DateSetMisses = 0;
                         files.Save();
 
-                        Console.WriteLine($"DateSetter: {fileName} -> " +
-                                          (file.TakenAt is DateTime t ? TakenTime.Describe(t, file.TakenOffsetMs) : $"{file.Date} (time kept from the file)"));
+                        string wanted = file.TakenAt is DateTime t ? TakenTime.Describe(t, file.TakenOffsetMs) : $"{file.Date:d MMM yyyy} (time kept from the file)";
+                        Console.WriteLine($"DateSetter: {fileName}: {(alreadyRight ? "already" : "set to")} {wanted}");
                     }
                     else
                     {

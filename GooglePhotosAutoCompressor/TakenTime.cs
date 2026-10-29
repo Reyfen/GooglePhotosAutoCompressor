@@ -87,6 +87,25 @@ namespace GooglePhotosAutoCompressor
             return exif != null && TruncateToMinute(exif.Value) == TruncateToMinute(originalTakenAt.Value);
         }
 
+        /// <summary>
+        /// True when the date dialog of an uploaded copy already shows what the original had: the same date,
+        /// time and time zone when those are known, or just the same date when they are not.
+        /// </summary>
+        public static bool AlreadyShown(DateTime? shown, int? shownOffsetMs, DateOnly date, DateTime? takenAt, int? offsetMs)
+        {
+            if (shown == null)
+            {
+                return false;
+            }
+
+            if (takenAt == null)
+            {
+                return date == default || DateOnly.FromDateTime(shown.Value) == date;
+            }
+
+            return shown == TruncateToMinute(takenAt.Value) && (offsetMs == null || shownOffsetMs == offsetMs);
+        }
+
         public static string Describe(DateTime takenAt, int? offsetMs) =>
             takenAt.ToString("d MMM yyyy, HH:mm", CultureInfo.InvariantCulture) + (offsetMs is int ms ? " " + FormatOffset(ms) : "");
 

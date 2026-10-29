@@ -317,8 +317,9 @@ namespace GooglePhotosAutoCompressor.Tests.Live
         /// <summary>Same path as the date step: open the newest item and make sure the info panel is shown.</summary>
         private async Task<(string fileName, string dateLabel)> OpenFirstItemInViewer()
         {
-            await Page.GotoAsync(LivePhotosFixture.HOME_URL);
-            await Expect($"clicking the first library item ({Selectors.LIBRARY_FIRST_ITEM}) to open the viewer", async () =>
+            // The date step starts from "Recently added" (newest uploads first), not the library.
+            await Page.GotoAsync(Selectors.RECENTLY_ADDED_URL);
+            await Expect($"clicking the first item of Recently added ({Selectors.RECENTLY_ADDED_URL}, {Selectors.LIBRARY_FIRST_ITEM}) to open the viewer", async () =>
             {
                 await Page.Locator(Selectors.LIBRARY_FIRST_ITEM).First.ClickAsync();
                 await Page.WaitForURLAsync("**/photo/**", new() { Timeout = 10_000 });

@@ -67,6 +67,29 @@ namespace GooglePhotosAutoCompressor.Tests
         }
 
         [Fact]
+        public void Copy_already_showing_the_originals_time_needs_no_save()
+        {
+            // As seen live: the uploaded copies kept the file's creation time and showed exactly the original's.
+            DateTime taken = new(2026, 6, 13, 2, 57, 0);
+            DateOnly day = new(2026, 6, 13);
+
+            Assert.True(TakenTime.AlreadyShown(taken, 7_200_000, day, taken, 7_200_000));
+            Assert.False(TakenTime.AlreadyShown(taken.AddMinutes(1), 7_200_000, day, taken, 7_200_000));
+            Assert.False(TakenTime.AlreadyShown(taken, 3_600_000, day, taken, 7_200_000)); // other time zone
+            Assert.False(TakenTime.AlreadyShown(null, null, day, taken, 7_200_000));
+            Assert.True(TakenTime.AlreadyShown(taken, 3_600_000, day, taken, null));  // zone unknown: time is enough
+        }
+
+        [Fact]
+        public void Without_the_originals_time_only_the_date_is_compared()
+        {
+            DateOnly day = new(2026, 6, 13);
+
+            Assert.True(TakenTime.AlreadyShown(new DateTime(2026, 6, 13, 9, 0, 0), 0, day, null, null));
+            Assert.False(TakenTime.AlreadyShown(new DateTime(2026, 6, 14, 9, 0, 0), 0, day, null, null));
+        }
+
+        [Fact]
         public void Photo_with_unknown_original_time_trusts_its_exif()
         {
             Assert.True(TakenTime.PhotoKeepsTime(null, "2025:07:04 17:57:42"));
