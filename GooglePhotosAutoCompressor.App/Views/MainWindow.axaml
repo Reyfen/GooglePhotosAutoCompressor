@@ -67,7 +67,41 @@
                   </ItemsControl.ItemsPanel>
                   <ItemsControl.ItemTemplate>
                     <DataTemplate x:DataType="vm:StepViewModel">
-                      <StackPanel HorizontalAlignment="Center" Spacing="6">
+                      <!-- Left and right line halves join the circles into one track; see MainViewModel.UpdateConnectors. -->
+                      <Grid ColumnDefinitions="*,Auto,*" RowDefinitions="34,Auto">
+                        <Grid.Styles>
+                          <!-- Square ends, so the two halves of a line meet without a gap. -->
+                          <Style Selector="ProgressBar.line">
+                            <Setter Property="MinWidth" Value="0" />
+                            <Setter Property="Height" Value="4" />
+                            <Setter Property="MinHeight" Value="4" />
+                            <Setter Property="CornerRadius" Value="0" />
+                            <Setter Property="Background" Value="{DynamicResource StepPendingBrush}" />
+                            <Setter Property="Foreground" Value="{DynamicResource DoneGreen}" />
+                          </Style>
+                          <!-- A step without a known percentage: its line pulses. (An indeterminate ProgressBar
+                               left stray stripes behind when it switched back to a value.) -->
+                          <Style Selector="Border.pulse">
+                            <Setter Property="Height" Value="4" />
+                            <Setter Property="Background" Value="{DynamicResource AccentBlue}" />
+                            <Style.Animations>
+                              <Animation Duration="0:0:1.4" IterationCount="Infinite">
+                                <KeyFrame Cue="0%"><Setter Property="Opacity" Value="0.15" /></KeyFrame>
+                                <KeyFrame Cue="50%"><Setter Property="Opacity" Value="0.9" /></KeyFrame>
+                                <KeyFrame Cue="100%"><Setter Property="Opacity" Value="0.15" /></KeyFrame>
+                              </Animation>
+                            </Style.Animations>
+                          </Style>
+                        </Grid.Styles>
+                        <Panel Margin="0,0,6,0" VerticalAlignment="Center" IsVisible="{Binding HasLineIn}">
+                          <ProgressBar Classes="line" Value="{Binding LineIn}" />
+                          <Border Classes="pulse" IsVisible="{Binding LineInMoving}" />
+                        </Panel>
+                        <Panel Grid.Column="2" Margin="6,0,0,0" VerticalAlignment="Center" IsVisible="{Binding HasLineOut}">
+                          <ProgressBar Classes="line" Value="{Binding LineOut}" />
+                          <Border Classes="pulse" IsVisible="{Binding LineOutMoving}" />
+                        </Panel>
+                      <StackPanel Grid.Column="1" Grid.RowSpan="2" HorizontalAlignment="Center" Spacing="6">
                         <Border Width="34" Height="34" CornerRadius="17" HorizontalAlignment="Center"
                                 Background="{DynamicResource StepPendingBrush}"
                                 Classes.active="{Binding IsActive}" Classes.done="{Binding IsDone}">
@@ -81,6 +115,7 @@
                         <TextBlock Text="{Binding Name}" HorizontalAlignment="Center" FontSize="12"
                                    Classes.muted="{Binding IsPending}" />
                       </StackPanel>
+                      </Grid>
                     </DataTemplate>
                   </ItemsControl.ItemTemplate>
                 </ItemsControl>
@@ -133,8 +168,15 @@
                     <TextBlock Classes="muted" HorizontalAlignment="Center" FontSize="12" TextWrapping="Wrap" TextAlignment="Center"
                                Text="A Chrome window opens for Google Photos. Leave it open while the app works; you can keep using your PC." />
                   </StackPanel>
+                  <!-- Long lines wrap: no sideways scrolling. -->
                   <ListBox x:Name="LogList" ItemsSource="{Binding LogLines}" Background="Transparent"
+                           ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                            FontFamily="Cascadia Mono,Consolas,DejaVu Sans Mono,Menlo,monospace" FontSize="12">
+                    <ListBox.ItemTemplate>
+                      <DataTemplate x:DataType="x:String">
+                        <TextBlock Text="{Binding}" TextWrapping="Wrap" />
+                      </DataTemplate>
+                    </ListBox.ItemTemplate>
                     <ListBox.Styles>
                       <Style Selector="ListBoxItem"><Setter Property="Padding" Value="8,1" /><Setter Property="MinHeight" Value="0" /></Style>
                     </ListBox.Styles>

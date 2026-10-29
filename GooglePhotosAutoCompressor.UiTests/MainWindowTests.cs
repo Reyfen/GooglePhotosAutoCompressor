@@ -97,6 +97,9 @@ namespace GooglePhotosAutoCompressor.UiTests
         private static void Screenshot(Window window, string name)
         {
             Dispatcher.UIThread.RunJobs();
+            // Draw a new frame: with a running animation the last frame can otherwise be returned as it was.
+            AvaloniaHeadlessPlatform.ForceRenderTimerTick();
+            Dispatcher.UIThread.RunJobs();
             Directory.CreateDirectory(SCREENS);
             string path = Path.Combine(SCREENS, name + ".png");
             window.CaptureRenderedFrame()?.Save(path);
@@ -128,6 +131,43 @@ namespace GooglePhotosAutoCompressor.UiTests
             Button start = window.GetVisualDescendantsOfType<Button>().First(b => b.Content as string == "Start");
             Assert.True(start.IsEffectivelyEnabled);
             Screenshot(window, "1-run");
+        }
+
+        [AvaloniaFact]
+        public void Step_lines_fill_up_to_the_running_step_and_long_log_lines_wrap()
+        {
+            (MainWindow window, MainViewModel vm, _) = Open();
+            vm.IsRunning = true;
+            vm.Steps[0].State = StepState.Done;
+            vm.Steps[1].State = StepState.Done;
+            vm.Steps[2].State = StepState.Active; // compressing, 60 % of the current video
+
+            vm.UpdateConnectors(0.6);
+
+            Assert.Equal(100, vm.Steps[0].LineOut);   // sign in → download: done
+            Assert.Equal(100, vm.Steps[1].LineIn);
+            Assert.Equal(100, vm.Steps[1].LineOut);   // download → compress: 60 % = first half full,
+            Assert.Equal(20, vm.Steps[2].LineIn, 6);  // second half 20 %
+            Assert.Equal(0, vm.Steps[2].LineOut);     // after the running step: empty
+            Assert.False(vm.Steps[2].LineInMoving);   // known progress: no animation
+
+            vm.UpdateConnectors();                   // a step without a known percentage
+            Assert.True(vm.Steps[1].LineOutMoving);
+            Assert.True(vm.Steps[2].LineInMoving);
+            Assert.False(vm.Steps[0].LineOutMoving);
+            vm.UpdateConnectors(0.6);
+
+            string longLine = "[10/10] ok C:\\Users\\someone\\Downloads\\GooglePhotosAutoCompressor\\Compressed\\PXL_20260613_005715199_compressed_e06f7b84.mp4      48.3 MB -> 12.1 MB";
+            vm.LogLines.Add(longLine);
+            vm.LogLines.Add("ReadTakenTimes");
+            Dispatcher.UIThread.RunJobs();
+            Screenshot(window, "1b-run-progress");
+
+            TextBlock line = window.GetVisualDescendantsOfType<TextBlock>().Single(t => t.Text == longLine);
+            Assert.True(line.Bounds.Height > line.FontSize * 2, "a long log line should wrap onto more lines");
+            ListBox log = window.GetVisualDescendantsOfType<ListBox>().Single(l => l.Name == "LogList");
+            Assert.True(line.Bounds.Width <= log.Bounds.Width, "the log line should not be wider than the log");
+            vm.IsRunning = false;
         }
 
         [AvaloniaFact]

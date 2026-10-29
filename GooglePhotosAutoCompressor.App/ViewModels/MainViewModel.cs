@@ -52,7 +52,7 @@ public partial class MainViewModel : ObservableObject
             new StepViewModel(3, "Compress"),
             new StepViewModel(4, "Move to bin"),
             new StepViewModel(5, "Upload"),
-            new StepViewModel(6, "Set dates"),
+            new StepViewModel(6, "Set dates") { HasLineOut = false },
         });
 
         log.LineWritten += line => Dispatcher.UIThread.Post(() => AddLogLine(line));
@@ -151,6 +151,7 @@ public partial class MainViewModel : ObservableObject
         _startedAt = DateTime.Now;
         _clock.Start();
         foreach (StepViewModel step in Steps) step.State = StepState.Pending;
+        UpdateConnectors();
         SetStatus("Starting…");
         OverallProgress = 0;
         KeepAwake.Start();
@@ -231,6 +232,8 @@ public partial class MainViewModel : ObservableObject
                 break;
         }
 
+        UpdateConnectors();
+
         RefreshItems();
         _stop?.Dispose();
         _stop = null;
@@ -269,6 +272,7 @@ public partial class MainViewModel : ObservableObject
             }
 
             OverallProgress = index * 100.0 / Steps.Count;
+            UpdateConnectors();
         }
 
         OverallIndeterminate = stage is PipelineStage.Preparing or PipelineStage.SigningIn or PipelineStage.Downloading or PipelineStage.WaitingForInternet;
@@ -291,7 +295,28 @@ public partial class MainViewModel : ObservableObject
             ShowCurrentItem = true;
             CurrentItemProgress = fraction * 100;
             OverallProgress = (2 + fraction) * 100.0 / Steps.Count;
+            UpdateConnectors(fraction);
         });
+    }
+
+    /// <summary>
+    /// The lines between the step circles: full up to the last finished step, then the line into the
+    /// running step shows its progress (the compress percentage when known, otherwise a moving bar),
+    /// empty after it. Each line is drawn as two halves: the right half of one step and the left half of the next.
+    /// </summary>
+    internal void UpdateConnectors(double? fraction = null)
+    {
+        for (int k = 0; k + 1 < Steps.Count; k++)
+        {
+            StepViewModel from = Steps[k], to = Steps[k + 1];
+            bool moving = to.IsActive && IsRunning && fraction == null;
+            double filled = to.IsDone ? 1 : to.IsActive ? fraction ?? 0 : 0;
+
+            from.LineOut = Math.Clamp(filled * 2, 0, 1) * 100;
+            to.LineIn = Math.Clamp(filled * 2 - 1, 0, 1) * 100;
+            from.LineOutMoving = moving;
+            to.LineInMoving = moving;
+        }
     }
 
     private async Task<bool> ConfirmBin(IReadOnlyList<FileItem> items)
