@@ -10,6 +10,7 @@ namespace GooglePhotosAutoCompressor.Tests
     /// <summary>
     /// Runs the local Claude Code CLI (<c>claude -p</c>) to look at images.
     /// Tests that use it skip with <see cref="MISSING_MESSAGE"/> when it is not installed.
+    /// It always uses the Claude Code sign-in (subscription), never API tokens: see <see cref="API_KEY_VARIABLES"/>.
     /// </summary>
     public static class ClaudeCode
     {
@@ -103,6 +104,23 @@ namespace GooglePhotosAutoCompressor.Tests
             }
         }
 
+        /// <summary>
+        /// Removed from the environment of every <c>claude</c> call: with one of these set, Claude Code would bill
+        /// API tokens (or another provider) instead of using the signed-in Claude Code account.
+        /// </summary>
+        internal static readonly string[] API_KEY_VARIABLES =
+        {
+            "ANTHROPIC_API_KEY", "ANTHROPIC_AUTH_TOKEN", "CLAUDE_CODE_USE_BEDROCK", "CLAUDE_CODE_USE_VERTEX",
+        };
+
+        internal static void UseSignInNotApiKeys(IDictionary<string, string?> environment)
+        {
+            foreach (string name in API_KEY_VARIABLES)
+            {
+                environment.Remove(name);
+            }
+        }
+
         private static string Ask(string exe, string workDir, string prompt)
         {
             var psi = new ProcessStartInfo(exe)
@@ -123,6 +141,7 @@ namespace GooglePhotosAutoCompressor.Tests
                 psi.ArgumentList.Add(arg);
             // A test run started from inside a Claude Code session must not look like a nested one.
             psi.Environment.Remove("CLAUDECODE");
+            UseSignInNotApiKeys(psi.Environment);
 
             using Process p = Process.Start(psi) ?? throw new InvalidOperationException($"Could not start {exe}");
             Task<string> stdout = p.StandardOutput.ReadToEndAsync();

@@ -4,6 +4,21 @@ namespace GooglePhotosAutoCompressor.Tests
     public class ClaudeCodeTests
     {
         [Fact]
+        public void Never_passes_api_keys_to_claude_code()
+        {
+            // The AI page tests must use the Claude Code sign-in, not paid API tokens.
+            var env = new Dictionary<string, string?>
+            {
+                ["ANTHROPIC_API_KEY"] = "x", ["ANTHROPIC_AUTH_TOKEN"] = "x", ["CLAUDE_CODE_USE_BEDROCK"] = "1",
+                ["CLAUDE_CODE_USE_VERTEX"] = "1", ["PATH"] = "keep",
+            };
+
+            ClaudeCode.UseSignInNotApiKeys(env);
+
+            Assert.Equal(new[] { "PATH" }, env.Keys);
+        }
+
+        [Fact]
         public void Parses_plain_json_reply()
         {
             ScreenVerdict v = ClaudeCode.ParseVerdict("""{"ok": true, "reason": "Large files page with a grid of videos."}""");

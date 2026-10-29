@@ -5,6 +5,7 @@
 
     Read-only: nothing is uploaded, deleted or changed in your account.
     Screenshots of your library are sent to Claude.
+    Uses your Claude Code sign-in (subscription), never API tokens: API-key variables are removed for each call.
 
 .EXAMPLE
     ./integration_tests.ps1              # run the tests
