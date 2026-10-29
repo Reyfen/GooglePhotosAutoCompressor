@@ -51,7 +51,7 @@ jobs:
           Copy-Item $exe.FullName GooglePhotosAutoCompressor/tools/ffmpeg.exe -Force
       - name: Build portable exe (runs its setup check)
         shell: pwsh
-        run: ./publish.ps1 -Version ${{ needs.version.outputs.version }}
+        run: ./build.ps1 win -SkipTests -Version ${{ needs.version.outputs.version }}
       - name: Open the window and take a screenshot
         shell: pwsh
         run: |

@@ -8,7 +8,7 @@ download large videos and photos from Google Photos → compress them (ffmpeg fo
 
 - `GooglePhotosAutoCompressor/` – core library (`GooglePhotosAutoCompressor.Core.dll`): `Pipeline.cs` runs the steps (one class per step in `Modules/`), `Settings.cs`, rules in `ItemRules.cs`.
 - `GooglePhotosAutoCompressor.App/` – the exe: Avalonia window (MVVM, `ViewModels/`, `Views/`), plus `--cli` and `--check`.
-- `packaging/` – Linux AppImage/.deb scripts and icon; `publish.ps1` makes the portable Windows exe.
+- `packaging/` – Linux AppImage/.deb script (`build.ps1` runs it, in WSL on Windows) and icon.
 
 Per-item progress is stored in `~/Downloads/GooglePhotosAutoCompressor/progress.json` (with the `Originals/` and `Compressed/` work folders next to it) so runs can resume after any interruption (see "Interruptions" in HANDOFF.md).
 
@@ -23,9 +23,8 @@ Per-item progress is stored in `~/Downloads/GooglePhotosAutoCompressor/progress.
 dotnet build
 dotnet test
 dotnet run --project GooglePhotosAutoCompressor.App
-./build.ps1               # build + unit tests
+./build.ps1               # unit tests + Windows exe + Linux packages in dist/ (`./build.ps1 test` = only tests)
 ./integration_tests.ps1   # live Google Photos tests (-SignIn the first time)
-./publish.ps1             # portable Windows exe in dist/ (Linux: packaging/linux/build-packages.sh)
 ```
 Tests that need ffmpeg skip themselves when it is not found. Live Google Photos page tests (`Tests/Live`, `Category=Live`) need Claude Code and a signed-in profile and must stay read-only: never upload, delete or save a date in them.
 

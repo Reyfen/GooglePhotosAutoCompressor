@@ -47,14 +47,10 @@ Without a window (terminal or server): `GooglePhotosAutoCompressor --cli` runs o
 
 | Script | What it does | Needs |
 |--------|--------------|-------|
-| `./build.ps1` | Builds the app and runs the unit and UI tests. | .NET 8 |
+| `./build.ps1` | Runs the unit and UI tests, then makes all three files in `dist/`: the portable Windows exe (and runs its setup check), the AppImage `.tar.gz` and the `.deb`. One line per step; full output in `dist/logs/`. | .NET 8; Git LFS for the bundled ffmpeg; for the Linux files on Windows: WSL with Ubuntu 24.04 |
 | `./integration_tests.ps1` | Tries every step on the real Google Photos website and lets Claude Code check the screenshots. | Chrome, [Claude Code](https://claude.com/claude-code), a signed-in Google account |
-| `./publish.ps1` | Makes the portable Windows exe in `dist/` and runs its setup check. | .NET 8, Git LFS (for the bundled ffmpeg) |
-| `packaging/linux/build-packages.sh` | Makes the AppImage `.tar.gz` and the `.deb` in `dist/` (run on Linux). | .NET 8, `dpkg-deb` |
 
-On Linux, run the `.ps1` scripts with `pwsh` (for example `pwsh ./build.ps1`). Run the app from source with `dotnet run --project GooglePhotosAutoCompressor.App`.
-
-`build.ps1` options: `-Configuration Release`, `-SkipTests`. `publish.ps1` options: `-Version v1.2.0`, `-Runtime win-arm64`.
+`build.ps1` options: `test` (only build and test), `win`, `linux` (only those files), `-SkipTests`, `-Version v1.2.0`, `-WslDistro <name>`. It can also be double-clicked. On Linux, run it with `pwsh ./build.ps1` (packs the Linux files directly; needs `dpkg-deb`). Run the app from source with `dotnet run --project GooglePhotosAutoCompressor.App`.
 
 The **Packages** GitHub workflow builds all three files on every push and tests them on clean machines: a fresh Windows VM, a fresh Ubuntu VM (AppImage started as a double-click would, with Chrome), and clean Ubuntu 22.04/24.04, Debian 12 and Fedora 41 containers. Each test runs the setup check, opens the window on a virtual screen and keeps a screenshot. Pushing a tag such as `v1.2.0` publishes a release with the files.
 
