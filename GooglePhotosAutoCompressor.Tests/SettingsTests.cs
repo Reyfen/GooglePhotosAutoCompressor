@@ -21,7 +21,7 @@ namespace GooglePhotosAutoCompressor.Tests
             Assert.Equal(3, s.MaxFails);
             Assert.True(s.ConfirmBeforeBin);
             Assert.False(s.DeleteLocalFilesWhenDone);
-            Assert.Equal(Const.DOWNLOADS_PATH, s.WorkFolderOrDefault);
+            Assert.Equal(Const.APP_DOWNLOADS_PATH, s.WorkFolderOrDefault);
         }
 
         [Fact]
@@ -79,7 +79,7 @@ namespace GooglePhotosAutoCompressor.Tests
             Assert.Equal(30, s.PhotoJpegQuality);
             Assert.Equal(90, s.MinSavingPercent);
             Assert.Equal(10, s.ParallelDownloads);
-            Assert.Equal(Const.DOWNLOADS_PATH, s.WorkFolderOrDefault);
+            Assert.Equal(Const.APP_DOWNLOADS_PATH, s.WorkFolderOrDefault);
         }
 
         [Fact]

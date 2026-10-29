@@ -77,7 +77,7 @@ namespace GooglePhotosAutoCompressor
         public bool ConfirmBeforeBin { get; set; } = true;
         /// <summary>Delete the downloaded original and the copy from this PC once an item is finished.</summary>
         public bool DeleteLocalFilesWhenDone { get; set; }
-        /// <summary>Where downloads and compressed copies are kept. Empty means the Downloads folder.</summary>
+        /// <summary>Where downloads and compressed copies are kept. Empty means Downloads/GooglePhotosAutoCompressor.</summary>
         public string WorkFolder { get; set; } = "";
 
         [JsonIgnore]
@@ -92,7 +92,7 @@ namespace GooglePhotosAutoCompressor
         [JsonIgnore]
         public long MinFreeDiskBytes => (long)(MinFreeDiskGb * 1024 * 1024 * 1024);
         [JsonIgnore]
-        public string WorkFolderOrDefault => string.IsNullOrWhiteSpace(WorkFolder) ? Const.DOWNLOADS_PATH : WorkFolder;
+        public string WorkFolderOrDefault => string.IsNullOrWhiteSpace(WorkFolder) ? Const.APP_DOWNLOADS_PATH : WorkFolder;
 
         /// <summary>Brings every value into a range the app can work with.</summary>
         public Settings Normalized()

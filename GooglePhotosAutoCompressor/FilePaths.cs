@@ -9,8 +9,11 @@ namespace GooglePhotosAutoCompressor
     /// </summary>
     internal static class FilePaths
     {
-        public static string DOWNLOAD_DIR => Path.Combine(Settings.Current.WorkFolderOrDefault, "GooglePhotosDownloadCache");
-        public static string COMPRESS_DIR => Path.Combine(Settings.Current.WorkFolderOrDefault, "GooglePhotosCompressCache");
+        public const string DOWNLOAD_DIR_NAME = "Originals";
+        public const string COMPRESS_DIR_NAME = "Compressed";
+
+        public static string DOWNLOAD_DIR => Path.Combine(Settings.Current.WorkFolderOrDefault, DOWNLOAD_DIR_NAME);
+        public static string COMPRESS_DIR => Path.Combine(Settings.Current.WorkFolderOrDefault, COMPRESS_DIR_NAME);
 
         /// <summary>
         /// Half-written files a crash leaves behind: downloads ("x.mov.part") and copies being encoded

@@ -66,7 +66,7 @@ public partial class SettingsViewModel : ObservableObject
     };
 
     public string WorkFolderHint => string.IsNullOrWhiteSpace(WorkFolder)
-        ? $"Default: {Const.DOWNLOADS_PATH}"
+        ? $"Default: {Const.APP_DOWNLOADS_PATH}"
         : "Downloads and compressed copies are kept here until they are finished.";
 
     internal Settings ToSettings() => new Settings

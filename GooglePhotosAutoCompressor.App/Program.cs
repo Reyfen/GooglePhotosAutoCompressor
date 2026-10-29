@@ -41,6 +41,13 @@ internal static class Program
 
         try
         {
+            if (Lock != null)
+            {
+                // Only the copy that holds the lock may move files.
+                Settings.Current = Settings.Load(Settings.DEFAULT_PATH);
+                AppFolderMigration.Run();
+            }
+
             if (cli)
             {
                 return RunCli(args).GetAwaiter().GetResult();

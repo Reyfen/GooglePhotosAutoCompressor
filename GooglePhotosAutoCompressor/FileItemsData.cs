@@ -9,7 +9,8 @@ namespace GooglePhotosAutoCompressor
     /// </summary>
     internal class FileItemsData
     {
-        public static readonly string DEFAULT_PATH = Path.Combine(Const.DOWNLOADS_PATH, "GooglePhotosCache.json");
+        /// <summary>Kept in the app's Downloads folder whatever the work folder is (moved there from Downloads by <see cref="AppFolderMigration"/>).</summary>
+        public static readonly string DEFAULT_PATH = Path.Combine(Const.APP_DOWNLOADS_PATH, "progress.json");
 
         public readonly HashSet<FileItem> Items;
         private readonly string _path;

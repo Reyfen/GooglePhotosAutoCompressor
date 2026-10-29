@@ -11,7 +11,7 @@ It opens a normal Chrome window on your own Google Photos account and, for each 
 5. **Uploads** the smaller copy.
 6. **Fixes the date** of video copies so they appear in the right place in your timeline.
 
-**Stop it at any time.** Press Stop, close the app, or lose the internet: the next run carries on where it stopped, and nothing is moved to the bin before its copy is checked. Progress is saved to `~/Downloads/GooglePhotosCache.json`.
+**Stop it at any time.** Press Stop, close the app, or lose the internet: the next run carries on where it stopped, and nothing is moved to the bin before its copy is checked. Everything it downloads, and its progress, is kept in one folder: `Downloads/GooglePhotosAutoCompressor`.
 
 **Before you start:** compression loses some quality, and once the bin is emptied the originals are gone for good. The app clicks through the Google Photos website, which may be against Google's terms, and a change to that site can break it. Use it on your own account at your own risk.
 

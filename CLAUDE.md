@@ -10,7 +10,7 @@ download large videos and photos from Google Photos → compress them (ffmpeg fo
 - `GooglePhotosAutoCompressor.App/` – the exe: Avalonia window (MVVM, `ViewModels/`, `Views/`), plus `--cli` and `--check`.
 - `packaging/` – Linux AppImage/.deb scripts and icon; `publish.ps1` makes the portable Windows exe.
 
-Per-item progress is stored in `~/Downloads/GooglePhotosCache.json` so runs can resume after any interruption (see "Interruptions" in HANDOFF.md).
+Per-item progress is stored in `~/Downloads/GooglePhotosAutoCompressor/progress.json` (with the `Originals/` and `Compressed/` work folders next to it) so runs can resume after any interruption (see "Interruptions" in HANDOFF.md).
 
 ## Rules that must hold (data safety)
 - Never move an original to the bin unless its compressed copy is verified (or already uploaded).

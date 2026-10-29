@@ -22,6 +22,7 @@ Robustness pass finished: one commit per fix (`git log dev..fix/robustness`).
 | 13 | Linux: Chromium fallback, profile location, sign-in without timeout | `Modules/Initlizer.cs` |
 | 14 | Prompted ffmpeg download with SHA-256 check | `FfmpegInstaller.cs` |
 | 15 | CI (Windows + Linux), README, LFS pointer guard | `.github/workflows/ci.yml` |
+| 24 | All app files in `Downloads/GooglePhotosAutoCompressor` (`progress.json`, `Originals/`, `Compressed/`); files of older versions are moved there once on start, progress kept (`AppFolderMigration`: new state first, then folders, then old state removed; tested for a cut-off move) | `AppFolderMigration.cs`, `Const.APP_DOWNLOADS_PATH`, `FilePaths.cs` |
 | 23 | Date **and time** (and time zone) of each original are read from Google Photos before the bin and given to the copy (see "Date and time taken") | `TakenTime.cs`, `Modules/TakenTimeReader.cs`, `Modules/DateDialog.cs` |
 | 22 | Packages: portable Windows exe (`publish.ps1`), AppImage `.tar.gz` + `.deb` (`packaging/linux/build-packages.sh`), `--check` setup check, `Packages` workflow testing them on clean VMs/containers | `publish.ps1`, `packaging/`, `.github/workflows/packages.yml`, `SetupCheck.cs` |
 | 21 | Avalonia desktop app (Run / Items / Settings / Help), `--cli`, UI tests drawn headless | `GooglePhotosAutoCompressor.App/`, `GooglePhotosAutoCompressor.UiTests/` |
