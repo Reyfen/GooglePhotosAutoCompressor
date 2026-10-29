@@ -47,10 +47,10 @@ Without a window (terminal or server): `GooglePhotosAutoCompressor --cli` runs o
 
 | Script | What it does | Needs |
 |--------|--------------|-------|
-| `./build.ps1` | Runs the unit and UI tests, then makes all three files in `dist/`: the portable Windows exe (and runs its setup check), the AppImage `.tar.gz` and the `.deb`. One line per step; full output in `dist/logs/`. | .NET 8; Git LFS for the bundled ffmpeg; for the Linux files on Windows: WSL with Ubuntu 24.04 |
-| `./integration_tests.ps1` | Tries every step on the real Google Photos website and lets Claude Code check the screenshots. | Chrome, [Claude Code](https://claude.com/claude-code), a signed-in Google account |
+| `./build.ps1` | Asks whether to run the unit tests and the integration tests (both default to no), then makes all three files in `dist/`: the portable Windows exe (and runs its setup check), the AppImage `.tar.gz` and the `.deb`. One line per step; full output in `dist/logs/`. | .NET 8; Git LFS for the bundled ffmpeg; for the Linux files on Windows: WSL with Ubuntu 24.04 |
+| `./integration_tests.ps1` | Tries every step on the real Google Photos website (read-only) and lets Claude Code check the screenshots. Uses your Claude Code usage (sign-in), not API tokens. | Chrome, [Claude Code](https://claude.com/claude-code), a signed-in Google account |
 
-`build.ps1` options: `test` (only build and test), `win`, `linux` (only those files), `-SkipTests`, `-Version v1.2.0`, `-WslDistro <name>`. It can also be double-clicked. On Linux, run it with `pwsh ./build.ps1` (packs the Linux files directly; needs `dpkg-deb`). Run the app from source with `dotnet run --project GooglePhotosAutoCompressor.App`.
+`build.ps1` options: `test` (only build and test), `win`, `linux` (only those files), `-UnitTests` / `-IntegrationTests` (yes without asking), `-SkipTests` (no tests, no questions), `-Version v1.2.0`, `-WslDistro <name>`. It can also be double-clicked. On Linux, run it with `pwsh ./build.ps1` (packs the Linux files directly; needs `dpkg-deb`). Run the app from source with `dotnet run --project GooglePhotosAutoCompressor.App`.
 
 The **Packages** GitHub workflow builds all three files on every push and tests them on clean machines: a fresh Windows VM, a fresh Ubuntu VM (AppImage started as a double-click would, with Chrome), and clean Ubuntu 22.04/24.04, Debian 12 and Fedora 41 containers. Each test runs the setup check, opens the window on a virtual screen and keeps a screenshot. Pushing a tag such as `v1.2.0` publishes a release with the files.
 

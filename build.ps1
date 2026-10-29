@@ -5,17 +5,23 @@
       GooglePhotosAutoCompressor-v<ver>-x86_64.AppImage.tar.gz     any Linux: unpack, double-click
       google-photos-auto-compressor_v<ver>_amd64.deb               Ubuntu, Debian, Mint
 
+    At the start it asks two questions (Enter = no): run the unit tests? run the integration tests?
+    The integration tests (integration_tests.ps1) try each step on the real Google Photos site, read-only,
+    and use your Claude Code usage (sign-in, not API tokens) to check screenshots.
+    No questions in CI or with -UnitTests / -IntegrationTests / -SkipTests / the "test" target.
+
     Prints one line per step. The full output of each step is in dist/logs/; when a step fails,
-    the end of its log is shown. Live Google Photos tests are not run here (integration_tests.ps1).
+    the end of its log is shown.
 
     Linux packages: on Windows the app is built here and packed in WSL (Ubuntu, with dpkg-deb);
     on Linux they are packed directly. Run on Linux with PowerShell 7: pwsh ./build.ps1
 
 .EXAMPLE
-    ./build.ps1                    # unit tests, Windows exe, Linux packages
-    ./build.ps1 test               # only build and run the unit tests (quick check)
-    ./build.ps1 win                # unit tests, then only the Windows exe
-    ./build.ps1 linux -SkipTests   # only the Linux packages
+    ./build.ps1                    # asks about tests, then Windows exe and Linux packages
+    ./build.ps1 test               # only build and run the unit tests (asks about integration tests)
+    ./build.ps1 win -UnitTests     # unit tests without asking, then only the Windows exe
+    ./build.ps1 -IntegrationTests  # integration tests without asking
+    ./build.ps1 linux -SkipTests   # no tests, no questions: only the Linux packages
     ./build.ps1 -Version v1.2.0    # default: <Version> of the app project
 #>
 # Only the targets are positional: "./build.ps1 test" must not set -Version.
@@ -24,6 +30,10 @@ param(
     [Parameter(ValueFromRemainingArguments = $true)]
     [string[]]$Targets,
     [string]$Version,
+    # Answer the questions in advance: run the unit tests / the integration tests.
+    [switch]$UnitTests,
+    [switch]$IntegrationTests,
+    # No tests and no questions.
     [switch]$SkipTests,
     # WSL distribution that packs the Linux packages on Windows.
     [string]$WslDistro = "Ubuntu-24.04"
@@ -38,6 +48,14 @@ $logs = Join-Path $dist "logs"
 $failed = $false
 $built = @()
 $interactive = -not [Console]::IsOutputRedirected
+# Questions only when someone can answer them.
+$canAsk = (-not [Console]::IsInputRedirected) -and (-not $env:CI) -and (-not $env:GITHUB_ACTIONS)
+
+function Ask([string]$question) {
+    if (-not $canAsk) { return $false }
+    $answer = Read-Host "$question [y/N]"
+    return $answer -match "^\s*(y|yes)\s*$"
+}
 
 function Finish([bool]$ok) {
     Pop-Location
@@ -92,7 +110,7 @@ function Done([string]$label, [string]$detail) {
 Push-Location $root
 
 # ---------- what to build ----------
-$doTest = -not $SkipTests; $doWin = $false; $doLinux = $false
+$doTest = [bool]$UnitTests; $doLive = [bool]$IntegrationTests; $doWin = $false; $doLinux = $false
 foreach ($t in $Targets) {
     switch ($t.ToLowerInvariant()) {
         "test" { $doTest = $true }
@@ -120,6 +138,17 @@ $Version = "v$number"
 New-Item -ItemType Directory -Force $dist, $logs | Out-Null
 Write-Host "Google Photos Auto Compressor $Version" -ForegroundColor Cyan
 
+# Both questions first, so the rest runs without waiting for anyone.
+if ($SkipTests) { $doTest = $false; $doLive = $false }
+else {
+    if (-not $doTest) { $doTest = Ask "Run unit tests (about 20 s)?" }
+    if (-not $doLive -and $canAsk) {
+        Write-Host "Integration tests try every step on your real Google Photos (read-only) and let Claude Code" -ForegroundColor Yellow
+        Write-Host "check screenshots. They use your Claude Code usage (sign-in, not API tokens). Close the app first." -ForegroundColor Yellow
+        $doLive = Ask "Run integration tests (about 2 min)?"
+    }
+}
+
 # ---------- unit and UI tests ----------
 if ($doTest) {
     $ok = Invoke-Logged "Build" "dotnet" "build GooglePhotosAutoCompressor.sln -v quiet -nologo" "build"
@@ -137,6 +166,21 @@ if ($doTest) {
     }
     if ($ok) { Done "Tests" "$passed passed$(if ($skipped) { ", $skipped skipped" })" }
     else { Finish $false }
+}
+
+# ---------- integration tests (live Google Photos, Claude Code) ----------
+if ($doLive) {
+    # Same PowerShell as this script: powershell.exe on Windows PowerShell, pwsh on PowerShell 7.
+    $shell = (Get-Process -Id $PID).Path
+    $ok = Invoke-Logged "Integration" $shell "-NoProfile -File `"$(Join-Path $root 'integration_tests.ps1')`"" "integration"
+    # dotnet test ends with "Passed: 9" / "Skipped: 1" lines (each only when not zero).
+    $text = Get-Content (Join-Path $logs "integration.log") -Raw
+    $count = { param($name) $m = [regex]::Match($text, "(?m)^\s*${name}:\s+(\d+)\s*$"); if ($m.Success) { [int]$m.Groups[1].Value } else { 0 } }
+    $livePassed = & $count "Passed"; $liveSkipped = & $count "Skipped"
+    $detail = "$livePassed passed$(if ($liveSkipped) { ", $liveSkipped skipped (see dist/logs/integration.log)" })"
+    # A failure means Google changed a page; the packages can still be built, so carry on.
+    if ($ok) { Done "Integration" $detail }
+    else { $failed = $true }
 }
 
 # ---------- Windows: one portable exe ----------
