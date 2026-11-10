@@ -44,6 +44,29 @@ namespace GooglePhotosAutoCompressor.Tests
 
         private string CompressDir => Path.Combine(_dir, "out");
 
+        [Fact]
+        public void Encoding_time_limit_is_ten_times_the_length_plus_five_minutes()
+        {
+            Assert.Equal(TimeSpan.FromMinutes(5) + TimeSpan.FromSeconds(300), Ffmpeg.EncodeTimeLimit(TimeSpan.FromSeconds(30)));
+            Assert.Equal(TimeSpan.FromMinutes(5), Ffmpeg.EncodeTimeLimit(TimeSpan.Zero)); // length unknown (photo tile)
+        }
+
+        [SkippableFact]
+        public void Ffmpeg_running_too_long_is_stopped()
+        {
+            Ffmpeg ffmpeg = RequireFfmpeg();
+            FileItem item = ItemFor(MakeClip("long.mp4", seconds: 20, size: "1280x720"), seconds: 20);
+            string output = Path.Combine(_dir, "out.part.mp4");
+            var watch = System.Diagnostics.Stopwatch.StartNew();
+
+            int exit = Compressor.Encode(ffmpeg, item, output, copyAudio: true, CancellationToken.None, timeLimit: TimeSpan.FromMilliseconds(300));
+
+            Assert.Equal(Ffmpeg.TIMED_OUT, exit);
+            Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), $"took {watch.Elapsed}");
+            Assert.DoesNotContain(System.Diagnostics.Process.GetProcessesByName("ffmpeg"),
+                p => { try { return p.MainModule?.FileName == ffmpeg.ExePath; } catch { return false; } });
+        }
+
         [SkippableFact]
         public void Download_shorter_than_listed_is_deleted_not_compressed()
         {

@@ -165,8 +165,14 @@ namespace GooglePhotosAutoCompressor.Modules
             try
             {
                 // Copying audio keeps quality; some audio codecs cannot go into mp4, so retry with AAC.
-                bool encoded = Encode(ffmpeg, file, partPath, copyAudio: true, cancellationToken)
-                               || Encode(ffmpeg, file, partPath, copyAudio: false, cancellationToken);
+                // Not after a time-out: the second try would only hang as long again.
+                int exit = Encode(ffmpeg, file, partPath, copyAudio: true, cancellationToken);
+                if (exit != 0 && exit != Ffmpeg.TIMED_OUT)
+                {
+                    exit = Encode(ffmpeg, file, partPath, copyAudio: false, cancellationToken);
+                }
+
+                bool encoded = exit == 0;
 
                 result = encoded ? Check(ffmpeg, file, partPath) : CompressResult.Failed;
             }
@@ -235,7 +241,9 @@ namespace GooglePhotosAutoCompressor.Modules
             return Math.Abs(expected.TotalSeconds - actual.TotalSeconds) <= tolerance;
         }
 
-        private static bool Encode(Ffmpeg ffmpeg, FileItem file, string outputPath, bool copyAudio, CancellationToken cancellationToken)
+        /// <summary>Exit code: 0 when the copy was written, <see cref="Ffmpeg.TIMED_OUT"/> when ffmpeg was stopped for taking too long.</summary>
+        internal static int Encode(Ffmpeg ffmpeg, FileItem file, string outputPath, bool copyAudio, CancellationToken cancellationToken,
+            TimeSpan? timeLimit = null)
         {
             Settings settings = Settings.Current;
             double totalSeconds = Math.Max(1, file.Duration.TotalSeconds);
@@ -250,9 +258,10 @@ namespace GooglePhotosAutoCompressor.Modules
                         Progress?.Invoke(file, Math.Clamp(done.TotalSeconds / totalSeconds, 0, 1));
                     }
                 },
-                cancellationToken: cancellationToken);
+                cancellationToken: cancellationToken,
+                timeLimit: timeLimit ?? Ffmpeg.EncodeTimeLimit(file.Duration));
 
-            return exitCode == 0 && File.Exists(outputPath);
+            return exitCode == 0 && File.Exists(outputPath) == false ? 1 : exitCode;
         }
 
         internal static IEnumerable<string> BuildArgs(string inputPath, string outputPath, bool copyAudio,

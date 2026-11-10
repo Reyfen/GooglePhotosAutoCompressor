@@ -57,7 +57,9 @@ namespace GooglePhotosAutoCompressor
         /// <summary>Runs ffmpeg. Returns exit code and everything it wrote to stderr.</summary>
         /// <param name="onLine">Called with every stderr line (ffmpeg's "-stats" progress lines included).</param>
         /// <param name="cancellationToken">Kills ffmpeg. The caller deletes its half-written output.</param>
-        public (int exitCode, string stderr) Run(IEnumerable<string> args, bool echo = false, Action<string>? onLine = null, CancellationToken cancellationToken = default)
+        /// <param name="timeLimit">Kills ffmpeg when it runs longer (a broken file can make it hang); exit code is then <see cref="TIMED_OUT"/>.</param>
+        public (int exitCode, string stderr) Run(IEnumerable<string> args, bool echo = false, Action<string>? onLine = null,
+            CancellationToken cancellationToken = default, TimeSpan? timeLimit = null)
         {
             var psi = new ProcessStartInfo
             {
@@ -105,6 +107,17 @@ namespace GooglePhotosAutoCompressor
                 catch (InvalidOperationException) { } // already exited
             }))
             {
+                if (timeLimit is TimeSpan limit && proc.WaitForExit(limit) == false)
+                {
+                    try { proc.Kill(entireProcessTree: true); }
+                    catch (InvalidOperationException) { } // exited just now
+                    proc.WaitForExit();
+                    cancellationToken.ThrowIfCancellationRequested();
+                    string message = $"ffmpeg ran longer than {limit.TotalMinutes:0.#} minutes and was stopped.";
+                    Console.WriteLine(message);
+                    return (TIMED_OUT, stderr + message);
+                }
+
                 proc.WaitForExit();
             }
 
@@ -112,6 +125,16 @@ namespace GooglePhotosAutoCompressor
 
             return (proc.ExitCode, stderr.ToString());
         }
+
+        /// <summary>Exit code <see cref="Run"/> returns when ffmpeg was stopped for running too long.</summary>
+        public const int TIMED_OUT = -2;
+
+        /// <summary>
+        /// How long encoding a video may take: 10× its length plus 5 minutes (normal encodes take about 1×; slow PCs
+        /// and 4K maybe 3–4×). Beyond that ffmpeg is assumed stuck on a broken file.
+        /// </summary>
+        public static TimeSpan EncodeTimeLimit(TimeSpan videoLength) =>
+            TimeSpan.FromMinutes(5) + TimeSpan.FromTicks(Math.Max(0, videoLength.Ticks) * 10);
 
         /// <summary>Reads the container duration, or null when the file is not a readable video.</summary>
         public TimeSpan? GetDuration(string path)
