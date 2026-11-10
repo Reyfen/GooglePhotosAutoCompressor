@@ -11,6 +11,8 @@ namespace GooglePhotosAutoCompressor.Tests
         // As seen live (2026-11-10): name, then the address in brackets on a second line.
         [InlineData("Google Account: Ella Kagner - formerly: Mike Bobko  \n(Someone.Name@gmail.com)", "someone.name@gmail.com")]
         [InlineData("Google Account: Work (team)\n(me@company.co.uk)", "me@company.co.uk")]
+        // Storage almost full: Google adds a note after the email (seen 2026-11-10).
+        [InlineData("Google Account: Evgenia Bobko  \n(Someone@gmail.com), Storage usage alert", "someone@gmail.com")]
         [InlineData("Google Account: Name only", null)]
         [InlineData("", null)]
         [InlineData(null, null)]

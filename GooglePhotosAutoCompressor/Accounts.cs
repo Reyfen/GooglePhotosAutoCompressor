@@ -12,7 +12,11 @@ namespace GooglePhotosAutoCompressor
     {
         public const string DIR_NAME = "accounts";
 
-        /// <summary>The email in the account button's label: "Google Account: Name\n(name@gmail.com)". Lower case.</summary>
+        /// <summary>
+        /// The email in the account button's label: "Google Account: Name\n(name@gmail.com)". Google may add a note
+        /// after it, e.g. "(name@gmail.com), Storage usage alert" when storage is almost full (seen 2026-11-10), so the
+        /// last "(email)" in the label is used, wherever it is. Lower case.
+        /// </summary>
         public static string? ParseEmail(string? accountLabel)
         {
             if (string.IsNullOrEmpty(accountLabel))
@@ -20,8 +24,8 @@ namespace GooglePhotosAutoCompressor
                 return null;
             }
 
-            Match match = Regex.Match(accountLabel, @"\(\s*([^\s()@]+@[^\s()@]+\.[^\s()@]+)\s*\)\s*$");
-            return match.Success ? match.Groups[1].Value.ToLowerInvariant() : null;
+            MatchCollection matches = Regex.Matches(accountLabel, @"\(\s*([^\s()@]+@[^\s()@]+\.[^\s()@]+)\s*\)");
+            return matches.Count > 0 ? matches[^1].Groups[1].Value.ToLowerInvariant() : null;
         }
 
         /// <summary>
