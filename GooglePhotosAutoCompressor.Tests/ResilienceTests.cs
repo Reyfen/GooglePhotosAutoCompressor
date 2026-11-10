@@ -312,4 +312,17 @@ namespace GooglePhotosAutoCompressor.Tests
     {
         public const string NAME = "Network check";
     }
+
+    public class ChromeStartTests
+    {
+        [Theory]
+        [InlineData(@"Chromium distribution 'chrome' is not found at C:\Program Files\Google\Chrome\Application\chrome.exe", true)]
+        [InlineData("Executable doesn't exist at /usr/bin/google-chrome", true)]
+        // Seen 2026-11-10: Chrome installed but closed at once. Must be tried again, never replaced by Chromium.
+        [InlineData("Target page, context or browser has been closed", false)]
+        public void Only_a_missing_Chrome_switches_to_Chromium(string message, bool missing)
+        {
+            Assert.Equal(missing, GooglePhotosAutoCompressor.Modules.Initlizer.IsChromeMissing(message));
+        }
+    }
 }

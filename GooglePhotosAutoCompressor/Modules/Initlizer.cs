@@ -12,22 +12,51 @@ namespace GooglePhotosAutoCompressor.Modules
             string profileDir = GetProfileDir();
             Console.WriteLine($"Browser profile: {profileDir}");
 
-            IBrowserContext context;
-            try
-            {
-                // Installed Google Chrome is preferred: Google sign-in trusts it more than bundled Chromium.
-                context = await Launch(playwright, profileDir, "chrome");
-            }
-            catch (PlaywrightException e)
-            {
-                Console.WriteLine($"Google Chrome could not be started ({FirstLine(e.Message)}). Using Playwright's Chromium instead.");
-                EnsureChromiumInstalled();
-                context = await Launch(playwright, profileDir, channel: null);
-            }
-
+            IBrowserContext context = await LaunchPreferringChrome(playwright, profileDir, headless: false);
             IPage page = context.Pages.FirstOrDefault() ?? await context.NewPageAsync();
             return (playwright, page);
         }
+
+        internal const int CHROME_START_TRIES = 3;
+
+        /// <summary>
+        /// Installed Google Chrome is preferred: Google sign-in trusts it more than bundled Chromium. When Chrome is
+        /// installed but closes right after starting (seen 2026-11-10: exit code 0x80000003, e.g. while Chrome updates
+        /// or another window still holds the profile), it is tried again a few times. It never falls back to Chromium
+        /// then: a different browser version can damage the profile Chrome made. Chromium is only used without Chrome.
+        /// </summary>
+        internal static async Task<IBrowserContext> LaunchPreferringChrome(IPlaywright playwright, string profileDir, bool headless)
+        {
+            for (int attempt = 1; ; attempt++)
+            {
+                try
+                {
+                    return await Launch(playwright, profileDir, "chrome", headless);
+                }
+                catch (PlaywrightException e) when (IsChromeMissing(e.Message))
+                {
+                    Console.WriteLine("Google Chrome is not installed. Using Playwright's Chromium instead.");
+                    EnsureChromiumInstalled();
+                    return await Launch(playwright, profileDir, channel: null, headless);
+                }
+                catch (PlaywrightException e) when (attempt < CHROME_START_TRIES)
+                {
+                    Console.WriteLine($"Google Chrome closed while starting ({FirstLine(e.Message)}). Trying again ({attempt + 1}/{CHROME_START_TRIES}).");
+                    await Task.Delay(TimeSpan.FromSeconds(3 * attempt));
+                }
+                catch (PlaywrightException e)
+                {
+                    throw new InvalidOperationException(
+                        $"Google Chrome closed right after starting, {CHROME_START_TRIES} times ({FirstLine(e.Message)}). " +
+                        "Close any Chrome window the app opened, wait a minute if Chrome is updating, then press Start again.", e);
+                }
+            }
+        }
+
+        /// <summary>Playwright's message when the "chrome" channel is not installed (as opposed to Chrome failing to start).</summary>
+        internal static bool IsChromeMissing(string message) =>
+            message.Contains("is not found", StringComparison.OrdinalIgnoreCase)
+            || message.Contains("Executable doesn't exist", StringComparison.OrdinalIgnoreCase);
 
         /// <summary>Starts Chrome (or Chromium when <paramref name="channel"/> is null) with the given profile. Also used by the live page tests.</summary>
         internal static Task<IBrowserContext> Launch(IPlaywright playwright, string profileDir, string? channel, bool headless = false)
@@ -84,18 +113,11 @@ namespace GooglePhotosAutoCompressor.Modules
             IBrowserContext context;
             try
             {
-                context = await Launch(playwright, profileDir, "chrome", headless: true);
+                context = await LaunchPreferringChrome(playwright, profileDir, headless: true);
             }
-            catch (PlaywrightException)
+            catch (Exception e) when (e is PlaywrightException or InvalidOperationException)
             {
-                try
-                {
-                    context = await Launch(playwright, profileDir, channel: null, headless: true);
-                }
-                catch (PlaywrightException e)
-                {
-                    return $"Could not open the app's browser ({FirstLine(e.Message)}). Close any Chrome window the app opened and try again.";
-                }
+                return $"Could not open the app's browser: {FirstLine(e.Message)}";
             }
 
             try
