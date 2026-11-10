@@ -60,6 +60,20 @@ namespace GooglePhotosAutoCompressor
             return null;
         }
 
+        /// <summary>Slowest download speed still waited for; slower than this the download counts as stalled.</summary>
+        public const double MIN_BYTES_PER_SECOND = 100_000;
+        public static readonly TimeSpan MIN_TIME_LIMIT = TimeSpan.FromMinutes(5);
+
+        /// <summary>
+        /// How long one download may take before it counts as stalled: at least 5 minutes, or as long as the file takes
+        /// at 100 KB/s (a 100 MB video: about 17 minutes). Without a limit a stalled download blocked the run for ever.
+        /// </summary>
+        public static TimeSpan TimeLimit(long tileSize)
+        {
+            TimeSpan bySize = TimeSpan.FromSeconds(ExpectedBytes(Math.Max(0, tileSize)) / MIN_BYTES_PER_SECOND);
+            return bySize > MIN_TIME_LIMIT ? bySize : MIN_TIME_LIMIT;
+        }
+
         /// <summary>Deletes a broken download (and its per-item folder when empty) and counts a failed attempt.</summary>
         public static void Discard(FileItem item, string reason)
         {

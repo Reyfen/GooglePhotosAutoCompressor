@@ -34,6 +34,15 @@ namespace GooglePhotosAutoCompressor.Tests
         }
 
         [Fact]
+        public void A_stalled_download_has_a_time_limit_that_grows_with_the_file()
+        {
+            Assert.Equal(TimeSpan.FromMinutes(5), DownloadCheck.TimeLimit(Tile(8.5).Size));     // small: the minimum
+            Assert.Equal(1000, DownloadCheck.TimeLimit(Tile(100).Size).TotalSeconds, 0);          // 100 MB at 100 KB/s
+            Assert.True(DownloadCheck.TimeLimit(Tile(2000).Size) > TimeSpan.FromHours(5));        // 2 GB
+            Assert.Equal(TimeSpan.FromMinutes(5), DownloadCheck.TimeLimit(0));                    // size unknown
+        }
+
+        [Fact]
         public void Video_length_must_match_the_list()
         {
             FileItem item = Tile(50, seconds: 28);

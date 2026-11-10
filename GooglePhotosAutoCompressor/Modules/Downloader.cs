@@ -144,7 +144,18 @@ namespace GooglePhotosAutoCompressor.Modules
                         string partPath = path + ".part";
                         using (cancellationToken.Register(() => _ = download.CancelAsync()))
                         {
-                            await download.SaveAsAsync(partPath);
+                            Task save = download.SaveAsAsync(partPath);
+                            TimeSpan limit = DownloadCheck.TimeLimit(item.Size);
+                            if (await Task.WhenAny(save, Task.Delay(limit, cancellationToken)) != save)
+                            {
+                                cancellationToken.ThrowIfCancellationRequested();
+                                // Stalled: cancel it, so it doesn't block the run. Counted as a failed attempt below.
+                                await download.CancelAsync();
+                                try { await save; } catch (PlaywrightException) { }
+                                throw new TimeoutException($"the download took longer than {limit.TotalMinutes:0} minutes");
+                            }
+
+                            await save;
                         }
 
                         cancellationToken.ThrowIfCancellationRequested();
