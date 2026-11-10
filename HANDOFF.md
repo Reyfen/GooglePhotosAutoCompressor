@@ -2,6 +2,10 @@
 
 Last updated: 2026-10-29, branch `fix/robustness` (`dev` was fast-forwarded to 1529751 on 2026-10-28).
 
+## Releases
+- v1.0.0 (2026-11-05): first release, from dev at 1ad2b88.
+- v1.0.1 (2026-11-10): Sign out (keeps accounts) and "Delete all login data". Released from dev by tagging; the Packages workflow builds, tests and publishes the files.
+
 ## Status
 Robustness pass finished: one commit per fix (`git log dev..fix/robustness`).
 

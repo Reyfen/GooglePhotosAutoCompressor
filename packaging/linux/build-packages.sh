@@ -14,7 +14,7 @@
 set -euo pipefail
 
 # File names use "v1.0.0"; the app and the .deb's own Version field must start with a digit ("1.0.0").
-NUMBER="${1:-v1.0.0}"
+NUMBER="${1:-v1.0.1}"
 NUMBER="${NUMBER#[vV]}"
 VERSION="v$NUMBER"
 ARCH="${2:-x64}"
