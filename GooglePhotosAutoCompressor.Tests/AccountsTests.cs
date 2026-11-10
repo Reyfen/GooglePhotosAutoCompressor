@@ -20,6 +20,14 @@ namespace GooglePhotosAutoCompressor.Tests
         }
 
         [Fact]
+        public void A_run_stops_when_the_window_switched_to_another_account()
+        {
+            Assert.Null(Accounts.Mismatch("me@gmail.com", "Me@Gmail.com"));            // same account
+            Assert.Contains("other@gmail.com", Accounts.Mismatch("me@gmail.com", "other@gmail.com"));
+            Assert.NotNull(Accounts.Mismatch("me@gmail.com", null));                   // can't confirm: stop too
+        }
+
+        [Fact]
         public void Each_account_has_its_own_safe_file_name()
         {
             Assert.Equal("someone.name_gmail.com.json", Accounts.FileName("Someone.Name@gmail.com"));

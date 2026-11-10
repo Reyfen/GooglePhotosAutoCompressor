@@ -125,6 +125,12 @@ namespace GooglePhotosAutoCompressor
                     string before = Fingerprint(files);
                     string prefix = Settings.Current.RepeatUntilDone ? $"Batch {batch}: " : "";
 
+                    // Same account as when the run started? (Checked right after sign-in for batch 1.)
+                    if (batch > 1 && await AccountChanged(page, account, cancellationToken) is string changedBeforeBatch)
+                    {
+                        return Fail(changedBeforeBatch);
+                    }
+
                     await Step(PipelineStage.Downloading, prefix + "Finding and downloading large items",
                         () => Downloader.DownloadUncommresedFiles(page, files, cancellationToken), cancellationToken);
                     await Step(PipelineStage.Compressing, prefix + "Compressing",
@@ -135,8 +141,19 @@ namespace GooglePhotosAutoCompressor
 
                     if (await ConfirmBin(files, cancellationToken))
                     {
+                        // The confirmation may have waited a long time: check the account right before binning.
+                        if (files.Snapshot().Any(ItemRules.IsReadyForBin) && await AccountChanged(page, account, cancellationToken) is string changedBeforeBin)
+                        {
+                            return Fail(changedBeforeBin);
+                        }
+
                         await Step(PipelineStage.MovingToBin, prefix + "Moving originals to the bin",
                             () => Deletor.DeleteCompressedFiles(page, files, cancellationToken), cancellationToken);
+                    }
+
+                    if (files.Snapshot().Any(ItemRules.CanUpload) && await AccountChanged(page, account, cancellationToken) is string changedBeforeUpload)
+                    {
+                        return Fail(changedBeforeUpload);
                     }
 
                     await Step(PipelineStage.Uploading, prefix + "Uploading compressed copies",
@@ -237,6 +254,33 @@ namespace GooglePhotosAutoCompressor
                     }
 
                     return;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Null when the browser is still signed in to <paramref name="account"/>; else the message to stop with.
+        /// A failed page load is retried (after waiting for the internet) before it counts as "can't confirm".
+        /// </summary>
+        private async Task<string?> AccountChanged(IPage page, string account, CancellationToken cancellationToken)
+        {
+            for (int attempt = 1; ; attempt++)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                try
+                {
+                    string? problem = await Initlizer.CheckAccountAsync(page, account);
+                    if (problem != null)
+                    {
+                        Console.WriteLine($"Account check: {problem}");
+                    }
+
+                    return problem;
+                }
+                catch (Exception e) when ((e is PlaywrightException or TimeoutException) && IsBrowserClosed(e) == false && attempt < MAX_STEP_ATTEMPTS)
+                {
+                    Console.WriteLine($"Account check: {FirstLine(e.Message)}. Trying again.");
+                    await WaitForInternet(cancellationToken);
                 }
             }
         }

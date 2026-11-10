@@ -54,6 +54,13 @@ namespace GooglePhotosAutoCompressor.Tests.Live
                 account = await Initlizer.ReadAccountAsync(Page) ?? throw new InvalidOperationException("no email in the account button's label"));
             _out.WriteLine($"account: {account![..Math.Min(2, account.Length)]}…@{account.Split('@').Last()}");
 
+            // The check a long run makes before each batch, the bin and the upload: same account, so no stop.
+            string? mismatch = null;
+            await Expect("the account check to find the same account again", async () =>
+                mismatch = await Initlizer.CheckAccountAsync(Page, account));
+            Assert.Null(mismatch);
+            await Page.GotoAsync(LivePhotosFixture.HOME_URL);
+
             await ExpectScreen("home",
                 "Is this the signed-in Google Photos main library (a grid of photos or videos), with the interface in English?");
         }

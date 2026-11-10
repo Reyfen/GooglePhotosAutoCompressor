@@ -109,6 +109,18 @@ namespace GooglePhotosAutoCompressor.Modules
             }
         }
 
+        /// <summary>
+        /// Is the browser still signed in to the run's account? Someone may sign into another account in the Chrome
+        /// window during a long run; the next steps would then treat this account's originals as gone and upload its
+        /// copies into the other one. Returns null when it is the same account, else why the run must stop.
+        /// </summary>
+        internal static async Task<string?> CheckAccountAsync(IPage page, string expected)
+        {
+            await page.GotoAsync($"https://photos.google.com/?hl={Const.LOCALE}");
+            string? now = await ReadAccountAsync(page);
+            return Accounts.Mismatch(expected, now);
+        }
+
         /// <summary>True when the app's browser profile exists, i.e. someone may be signed in.</summary>
         internal static bool HasProfile(string profileDir) =>
             Directory.Exists(profileDir) && Directory.EnumerateFileSystemEntries(profileDir).Any();

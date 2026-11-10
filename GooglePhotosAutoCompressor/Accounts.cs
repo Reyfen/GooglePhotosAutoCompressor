@@ -24,6 +24,27 @@ namespace GooglePhotosAutoCompressor
             return match.Success ? match.Groups[1].Value.ToLowerInvariant() : null;
         }
 
+        /// <summary>
+        /// Null when <paramref name="now"/> is the run's account; otherwise the message the run stops with. An account
+        /// that can't be read counts as a mismatch: the run can't prove it is still the same library.
+        /// </summary>
+        public static string? Mismatch(string expected, string? now)
+        {
+            if (now == null)
+            {
+                return $"Could not confirm that {expected} is still signed in, so the run stopped before touching any item. " +
+                       "Check the Chrome window and press Start again.";
+            }
+
+            if (string.Equals(expected, now, StringComparison.OrdinalIgnoreCase) == false)
+            {
+                return $"The Chrome window is now signed in as {now}, but this run is for {expected}. It stopped before touching " +
+                       $"any item, so the two accounts don't get mixed up. Press Start to carry on with {now}.";
+            }
+
+            return null;
+        }
+
         /// <summary>A file name made from the email ("name@gmail.com" → "name_gmail.com"), safe on every system.</summary>
         public static string FileName(string email) =>
             Regex.Replace(email.Trim().ToLowerInvariant(), @"[^a-z0-9._-]", "_") + ".json";
