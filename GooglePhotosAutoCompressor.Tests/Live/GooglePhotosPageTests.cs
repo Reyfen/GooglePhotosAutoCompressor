@@ -78,6 +78,26 @@ namespace GooglePhotosAutoCompressor.Tests.Live
                 "Is this the signed-in Google Photos main library (a grid of photos or videos), with the interface in English?");
         }
 
+        [SkippableFact]
+        public async Task A_page_in_another_language_is_opened_again_in_English()
+        {
+            RequireLive();
+            // The test account is English; an account set to Ukrainian (seen 2026-11-10) is copied with hl=uk in the
+            // address. Read-only: the account's own language setting is never changed.
+            await Page.GotoAsync("https://photos.google.com/?hl=uk");
+            string before = await Page.EvaluateAsync<string>("document.documentElement.lang");
+            Skip.If(before.StartsWith("en", StringComparison.OrdinalIgnoreCase), "Google ignored hl=uk, so there is nothing to switch back.");
+
+            await Initlizer.KeepEnglishAsync(Page);
+
+            string after = await Page.EvaluateAsync<string>("document.documentElement.lang");
+            Assert.True(Initlizer.IsAppLanguage(after), $"still '{after}' after KeepEnglishAsync: {Page.Url}");
+            await Expect($"the English account button ({Selectors.ACCOUNT_BUTTON}) after switching back", async () =>
+            {
+                if (await Initlizer.ReadAccountAsync(Page) == null) throw new InvalidOperationException("no English account button");
+            });
+        }
+
         // ---------- Large files list (scan, download, delete steps) ----------
 
         [SkippableFact]
