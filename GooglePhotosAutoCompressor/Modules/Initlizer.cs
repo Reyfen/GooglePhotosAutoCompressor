@@ -150,7 +150,8 @@ namespace GooglePhotosAutoCompressor.Modules
                 return GoogleWants.Confirm;
             }
 
-            if (url.StartsWith("https://www.google.com/photos/about", StringComparison.OrdinalIgnoreCase))
+            if (url.StartsWith("https://www.google.com/photos/about", StringComparison.OrdinalIgnoreCase)
+                || (url.StartsWith("https://photos.google.com", StringComparison.OrdinalIgnoreCase) && IsInGooglePhotos(url) == false))
             {
                 return GoogleWants.SignIn;
             }
@@ -227,7 +228,7 @@ namespace GooglePhotosAutoCompressor.Modules
 
                 // Signed out when Google Photos sends us to the sign-in page instead of the library.
                 await page.GotoAsync($"https://photos.google.com/?hl={Const.LOCALE}");
-                if (page.Url.StartsWith("https://photos.google.com", StringComparison.Ordinal))
+                if (IsInGooglePhotos(page.Url))
                 {
                     return "Google still shows this browser as signed in. Try again, or sign out in the Chrome window during a run.";
                 }
@@ -289,7 +290,7 @@ namespace GooglePhotosAutoCompressor.Modules
 
             await page.GotoAsync($"https://photos.google.com/?hl={Const.LOCALE}");
 
-            if (page.Url.StartsWith("https://photos.google.com"))
+            if (IsInGooglePhotos(page.Url))
             {
                 return;
             }
@@ -302,15 +303,30 @@ namespace GooglePhotosAutoCompressor.Modules
             while (true)
             {
                 cancellationToken.ThrowIfCancellationRequested();
-                try
+                // Not WaitForURL("photos.google.com/**"): it also matches the sign-in address photos.google.com/login
+                // itself, so the wait ended before anyone signed in (seen 2026-11-10 after Sign out).
+                if (IsInGooglePhotos(page.Url))
                 {
-                    await page.WaitForURLAsync("https://photos.google.com/**", new() { Timeout = 2000 });
                     return;
                 }
-                catch (TimeoutException)
-                {
-                }
+
+                await Task.Delay(2000, cancellationToken);
             }
+        }
+
+        /// <summary>
+        /// True on a Google Photos page of a signed-in account: on photos.google.com, but not its sign-in address
+        /// (/login, which only forwards to Google's sign-in) and not a page where Google wants a person.
+        /// </summary>
+        internal static bool IsInGooglePhotos(string? url)
+        {
+            if (string.IsNullOrEmpty(url) || url.StartsWith("https://photos.google.com", StringComparison.OrdinalIgnoreCase) == false)
+            {
+                return false;
+            }
+
+            string path = new Uri(url).AbsolutePath.TrimEnd('/');
+            return path.Equals("/login", StringComparison.OrdinalIgnoreCase) == false;
         }
     }
 }

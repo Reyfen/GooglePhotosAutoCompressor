@@ -64,6 +64,28 @@ namespace GooglePhotosAutoCompressor.Tests.Live
         }
 
         [SkippableFact]
+        public async Task The_sign_in_page_does_not_count_as_signed_in()
+        {
+            RequireLive();
+            // The sign-in wait once ended on photos.google.com/login itself, before anyone signed in.
+            using IPlaywright playwright = await Playwright.CreateAsync();
+            IBrowserContext context = await Initlizer.Launch(playwright, _profile, "chrome", headless: true);
+            try
+            {
+                IPage page = context.Pages.FirstOrDefault() ?? await context.NewPageAsync();
+                await page.GotoAsync($"https://photos.google.com/login?hl={Const.LOCALE}");
+                await page.WaitForLoadStateAsync(LoadState.NetworkIdle);
+
+                Assert.False(Initlizer.IsInGooglePhotos(page.Url), page.Url);
+                Assert.NotNull(Initlizer.WhatGoogleWants(page.Url));
+            }
+            finally
+            {
+                await context.CloseAsync();
+            }
+        }
+
+        [SkippableFact]
         public async Task Sign_out_reports_signed_out_for_a_profile_without_a_sign_in()
         {
             RequireLive();
