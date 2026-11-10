@@ -12,10 +12,27 @@ namespace GooglePhotosAutoCompressor.Modules
             // which skipped originals further down the list (and left duplicates after upload).
             Dictionary<string, FileItem> pending = files.Snapshot().Where(ItemRules.IsReadyForBin).ToDictionary(i => i.MediaKey);
 
-            // Last guard: a motion photo's copy has no video, so its original must never go to the bin.
-            foreach (FileItem motion in pending.Values.Where(i => MotionPhoto.Is(i.DownloadPath) || MotionPhoto.Is(i.CompressPath)).ToArray())
+            // Last guard for motion photos: the original goes to the bin only when the copy fits the setting
+            // (with "keep motion": it ends with the original's video). Before 2026-11-10 copies were stills.
+            foreach (FileItem motion in pending.Values.Where(i => MotionPhoto.CopyIsFine(i) == false).ToArray())
             {
-                MotionPhoto.LeaveAlone(motion);
+                if (Settings.Current.MotionPhotos != MotionPhotoMode.LeaveAlone && File.Exists(motion.DownloadPath))
+                {
+                    // Made under another setting: the next compress step makes it again from the download.
+                    Console.WriteLine($"Deletor: motion photo copy does not fit the setting, making it again: {motion.CompressPath}");
+                    if (File.Exists(motion.CompressPath))
+                    {
+                        File.Delete(motion.CompressPath);
+                    }
+
+                    motion.CompressPath = null;
+                    motion.Verified = false;
+                }
+                else
+                {
+                    MotionPhoto.LeaveAlone(motion, "its copy would not keep the video");
+                }
+
                 pending.Remove(motion.MediaKey);
                 files.Save();
             }

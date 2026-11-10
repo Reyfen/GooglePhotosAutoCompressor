@@ -284,6 +284,14 @@
                   <ComboBox Grid.Column="1" ItemsSource="{Binding VideoResolutionOptions}" SelectedIndex="{Binding VideoResolutionIndex}"
                             MinWidth="320" IsEnabled="{Binding CompressVideos}" />
                 </Grid>
+                <Grid Classes="row" ColumnDefinitions="260,*" IsEnabled="{Binding !IsLocked}">
+                  <TextBlock Text="Motion photos" VerticalAlignment="Center" />
+                  <StackPanel Grid.Column="1">
+                    <ComboBox ItemsSource="{Binding MotionPhotosOptions}" SelectedIndex="{Binding MotionPhotosIndex}"
+                              MinWidth="320" IsEnabled="{Binding CompressPhotos}" />
+                    <TextBlock Classes="hint" Text="Photos with a short video inside (Pixel .MP.jpg, Samsung). Keeping the motion saves less space." />
+                  </StackPanel>
+                </Grid>
                 <TextBlock Classes="hint" Text="Date, time, place and camera details are kept on every copy. Size limits and quality are under Advanced settings." />
               </StackPanel>
             </Border>

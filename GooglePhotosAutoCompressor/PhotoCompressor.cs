@@ -24,9 +24,11 @@ namespace GooglePhotosAutoCompressor
         {
             bool hasSource = File.Exists(file.DownloadPath);
 
-            if (file.OriginalDeleted == false && (MotionPhoto.Is(file.DownloadPath) || MotionPhoto.Is(file.CompressPath)))
+            if (file.OriginalDeleted == false && (MotionPhoto.Is(file.DownloadPath) || MotionPhoto.Is(file.CompressPath))
+                && (hasSource || Settings.Current.MotionPhotos == MotionPhotoMode.LeaveAlone)
+                && MotionPhoto.WhyLeftAlone(file.DownloadPath) is string why)
             {
-                MotionPhoto.LeaveAlone(file);
+                MotionPhoto.LeaveAlone(file, why);
                 return CompressResult.NotWorthIt;
             }
 
@@ -143,9 +145,29 @@ namespace GooglePhotosAutoCompressor
                 image.SetProfile(exif);
             }
 
+            // Motion photos (see MotionPhoto): the re-encoded picture loses the video stored after it.
+            bool motion = MotionPhoto.Is(inputPath);
+            if (motion && Settings.Current.MotionPhotos == MotionPhotoMode.LeaveAlone)
+            {
+                return CompressResult.NotWorthIt;
+            }
+
+            if (motion && Settings.Current.MotionPhotos == MotionPhotoMode.Still)
+            {
+                // A still copy must not claim a video that isn't there.
+                image.RemoveProfile("xmp");
+            }
+
             image.Quality = (uint)Settings.Current.PhotoJpegQuality;
             image.Format = MagickFormat.Jpeg;
             image.Write(outputPath);
+
+            if (motion && Settings.Current.MotionPhotos == MotionPhotoMode.KeepMotion && MotionPhoto.AppendTail(inputPath, outputPath) == false)
+            {
+                Console.WriteLine($"PhotoCompressor: could not keep the video of motion photo {inputPath}");
+                return CompressResult.Failed;
+            }
+
             return CompressResult.Ok;
         }
 
@@ -183,6 +205,21 @@ namespace GooglePhotosAutoCompressor
             {
                 Console.WriteLine($"PhotoCompressor: cannot read {outputPath}: {e.Message}");
                 return CompressResult.Failed;
+            }
+
+            if (MotionPhoto.Is(originalPath))
+            {
+                if (Settings.Current.MotionPhotos == MotionPhotoMode.KeepMotion && MotionPhoto.CopyKeepsMotion(originalPath, outputPath) == false)
+                {
+                    Console.WriteLine($"PhotoCompressor: the copy lost the motion photo's video: {outputPath}");
+                    return CompressResult.Failed;
+                }
+
+                if (Settings.Current.MotionPhotos == MotionPhotoMode.Still && MotionPhoto.ClaimsMotion(outputPath))
+                {
+                    Console.WriteLine($"PhotoCompressor: the still copy still claims a video: {outputPath}");
+                    return CompressResult.Failed;
+                }
             }
 
             if (new FileInfo(outputPath).Length > new FileInfo(originalPath).Length * Settings.Current.MaxCompressedSizeRatio)

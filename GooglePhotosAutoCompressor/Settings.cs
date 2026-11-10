@@ -13,6 +13,17 @@ namespace GooglePhotosAutoCompressor
         Max720p,
     }
 
+    /// <summary>What to do with motion photos (a JPEG with a short video stored after the picture).</summary>
+    internal enum MotionPhotoMode
+    {
+        /// <summary>No copy; the original stays in the library.</summary>
+        LeaveAlone,
+        /// <summary>The picture is compressed and the original video (and HDR map) put back after it.</summary>
+        KeepMotion,
+        /// <summary>The picture is compressed and the video dropped: the copy is a still photo.</summary>
+        Still,
+    }
+
     /// <summary>
     /// What to compress, how, and how much per run. Edited in the app and saved as JSON next to the
     /// browser profile. Defaults are the values the app always used.
@@ -53,6 +64,8 @@ namespace GooglePhotosAutoCompressor
         // Quality
         [JsonConverter(typeof(StringEnumConverter))]
         public VideoResolution VideoResolution { get; set; } = VideoResolution.Half;
+        [JsonConverter(typeof(StringEnumConverter))]
+        public MotionPhotoMode MotionPhotos { get; set; } = MotionPhotoMode.LeaveAlone;
         /// <summary>x264 CRF: lower is better quality and bigger. 18–28 is the useful range.</summary>
         public int VideoCrf { get; set; } = 20;
         /// <summary>16 MP is the size Google's own "Storage saver" quality keeps.</summary>

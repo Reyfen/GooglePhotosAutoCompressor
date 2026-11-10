@@ -338,7 +338,7 @@ namespace GooglePhotosAutoCompressor.Tests
             item.Verified = true;
             item.CompressPath = MakeJpeg("copy.jpg");
 
-            MotionPhoto.LeaveAlone(item);
+            MotionPhoto.LeaveAlone(item, "test");
 
             Assert.False(File.Exists(Path.Combine(_dir, "copy.jpg")));
             Assert.False(ItemRules.IsReadyForBin(item));

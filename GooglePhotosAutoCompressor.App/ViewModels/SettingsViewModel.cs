@@ -26,6 +26,8 @@ public partial class SettingsViewModel : ObservableObject
     /// <summary>0 = half size, 1 = max 1080p, 2 = max 720p.</summary>
     [ObservableProperty] private int _videoResolutionIndex;
     [ObservableProperty] private int _videoCrf;
+    /// <summary>0 = leave alone, 1 = keep the motion, 2 = still photo (see MotionPhotoMode).</summary>
+    [ObservableProperty] private int _motionPhotosIndex;
     [ObservableProperty] private decimal _maxPhotoMegapixels;
     [ObservableProperty] private int _photoJpegQuality;
     [ObservableProperty] private int _minSavingPercent;
@@ -70,6 +72,13 @@ public partial class SettingsViewModel : ObservableObject
         "At most 720p (HD)",
     };
 
+    public string[] MotionPhotosOptions { get; } =
+    {
+        "Leave them alone",
+        "Compress the photo, keep the motion",
+        "Compress to a still photo (the motion is lost)",
+    };
+
     public string VideoQualityText => VideoCrf switch
     {
         <= 18 => $"{VideoCrf} – almost no visible loss, bigger files",
@@ -98,6 +107,7 @@ public partial class SettingsViewModel : ObservableObject
         MinPhotoMb = (double)MinPhotoMb,
         VideoResolution = (VideoResolution)Math.Clamp(VideoResolutionIndex, 0, 2),
         VideoCrf = VideoCrf,
+        MotionPhotos = (MotionPhotoMode)Math.Clamp(MotionPhotosIndex, 0, 2),
         MaxPhotoMegapixels = (double)MaxPhotoMegapixels,
         PhotoJpegQuality = PhotoJpegQuality,
         MinSavingPercent = MinSavingPercent,
@@ -122,6 +132,7 @@ public partial class SettingsViewModel : ObservableObject
         MinPhotoMb = (decimal)s.MinPhotoMb;
         VideoResolutionIndex = (int)s.VideoResolution;
         VideoCrf = s.VideoCrf;
+        MotionPhotosIndex = (int)s.MotionPhotos;
         MaxPhotoMegapixels = (decimal)s.MaxPhotoMegapixels;
         PhotoJpegQuality = s.PhotoJpegQuality;
         MinSavingPercent = s.MinSavingPercent;

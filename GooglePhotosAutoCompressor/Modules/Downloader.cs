@@ -161,10 +161,10 @@ namespace GooglePhotosAutoCompressor.Modules
                         cancellationToken.ThrowIfCancellationRequested();
                         File.Move(partPath, path, true);
                         item.DownloadPath = path;
-                        if (MotionPhoto.Is(path))
+                        if (MotionPhoto.Is(path) && MotionPhoto.WhyLeftAlone(path) is string why)
                         {
                             // Before the size check: Google may send a motion photo without its video (smaller).
-                            MotionPhoto.LeaveAlone(item);
+                            MotionPhoto.LeaveAlone(item, why);
                             itemsData.Save();
                             return;
                         }
