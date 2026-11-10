@@ -82,7 +82,8 @@ namespace GooglePhotosAutoCompressor.Tests.Live
                 await Fail("the large files page to list video tiles whose size, date and duration can be read " +
                            $"(tiles: {Selectors.LARGE_FILE_TILE})", "no tile could be read");
 
-            Assert.All(items, i => Assert.True(i.Size > 0 && i.Duration > TimeSpan.Zero));
+            // Photos have no duration; videos must have one.
+            Assert.All(items, i => Assert.True(i.Size > 0 && (i.MediaType == MediaType.Image || i.Duration > TimeSpan.Zero)));
             Assert.Equal(items.Count, items.Select(i => i.MediaKey).Distinct().Count());
 
             await ExpectScreen("large-files",
@@ -104,6 +105,47 @@ namespace GooglePhotosAutoCompressor.Tests.Live
                 "(or similar) and icons for download and moving to the bin?");
 
             await Page.Locator(Selectors.TileByMediaKey(item.MediaKey)).First.ClickAsync(); // unselect
+        }
+
+        [SkippableFact]
+        public async Task Scan_keeps_going_while_several_tiles_get_selected()
+        {
+            RequireLive();
+            // The bin step's path: the scan selects tile after tile. Each selection redraws the list; the scan
+            // used to read tiles by position, lost track and waited 30 s (owner's run, 2026-11-10).
+            // As in that run: further down the list, and the first tile selected is a photo.
+            const int SKIP = 20;
+            const int TO_SELECT = 12;
+            int seen = 0;
+            List<string> selected = new();
+            using CancellationTokenSource cts = new();
+            await Expect($"the scan to select {TO_SELECT} tiles in a row without getting stuck", async () =>
+            {
+                Task scan = LargeFileLocator.EnumearteFiles(Page, async (tile, item) =>
+                {
+                    if (++seen <= SKIP || selected.Count >= TO_SELECT || (selected.Count == 0 && item.MediaType != MediaType.Image)) return;
+                    await tile.ClickAsync(new() { Timeout = 10_000 });
+                    await Task.Delay(150);
+                    selected.Add(item.MediaKey);
+                    if (selected.Count >= TO_SELECT) cts.Cancel();
+                }, cts.Token);
+                if (await Task.WhenAny(scan, Task.Delay(TimeSpan.FromMinutes(2))) != scan)
+                    throw new TimeoutException($"the scan was still going after 2 minutes, with {selected.Count} selected");
+                await scan;
+            });
+
+            try
+            {
+                Assert.Equal(TO_SELECT, selected.Count);
+                await Expect($"the selection bar to say '{TO_SELECT} selected'", () =>
+                    Page.GetByText($"{TO_SELECT} selected", new() { Exact = false }).First.WaitForAsync(new() { Timeout = 10_000 }));
+            }
+            finally
+            {
+                // Read-only: reloading drops the selection (tiles scrolled out of view are no longer on the page
+                // to click again). Nothing is moved.
+                await Page.ReloadAsync();
+            }
         }
 
         [SkippableFact]

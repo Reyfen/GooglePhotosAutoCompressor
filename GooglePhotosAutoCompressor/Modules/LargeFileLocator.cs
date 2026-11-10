@@ -25,12 +25,20 @@ namespace GooglePhotosAutoCompressor.Modules
             for (int scrollIteration = 0; scrollIteration < 20_000; scrollIteration++)
             {
                 bool foundNew = false;
-                ILocator tiles = page.Locator(Selectors.LARGE_FILE_TILE);
-                int tilesCount = await tiles.CountAsync();
-                for (int tileIndex = 0; tileIndex < tilesCount && cancellationToken.IsCancellationRequested == false; tileIndex++)
+                // All tiles in view at once (key and text). Reading them one by one by position broke: selecting a
+                // tile makes Google redraw the list, the count goes stale and "the 8th tile" no longer exists, so
+                // reading it waited 30 s and the bin step failed (owner's run, 2026-11-10). Tiles are then found by key.
+                TileSnapshot[] visible = await page.EvaluateAsync<TileSnapshot[]>(
+                    "selector => Array.from(document.querySelectorAll(selector)).map(t => ({ key: t.getAttribute('data-media-key') || '', text: t.innerText || '' }))",
+                    Selectors.LARGE_FILE_TILE);
+                foreach (TileSnapshot snapshot in visible)
                 {
-                    ILocator tile = tiles.Nth(tileIndex);
-                    string? mediaKey = await tile.GetAttributeAsync("data-media-key");
+                    if (cancellationToken.IsCancellationRequested)
+                    {
+                        break;
+                    }
+
+                    string mediaKey = snapshot.Key;
                     if (string.IsNullOrEmpty(mediaKey) || processedKeys.Contains(mediaKey))
                     {
                         continue;
@@ -38,15 +46,15 @@ namespace GooglePhotosAutoCompressor.Modules
 
                     foundNew |= seenKeys.Add(mediaKey);
 
-                    // Not parsed yet (photo, or text still loading): try again on the next scroll.
-                    FileItem? item = TileParser.Parse(mediaKey, await tile.AllInnerTextsAsync());
+                    // Not parsed yet (text still loading): try again on the next scroll.
+                    FileItem? item = TileParser.Parse(mediaKey, new[] { snapshot.Text });
                     if (item == null)
                     {
                         continue;
                     }
 
                     processedKeys.Add(mediaKey);
-                    await process(tile, item);
+                    await process(page.Locator(Selectors.TileByMediaKey(mediaKey)).First, item);
                 }
 
                 if (cancellationToken.IsCancellationRequested)
@@ -84,4 +92,11 @@ namespace GooglePhotosAutoCompressor.Modules
     }
 
     internal delegate Task ProccesFileItemInLargeFilesList(ILocator tile, FileItem item);
+
+    /// <summary>One tile as read from the page in a single call.</summary>
+    internal sealed class TileSnapshot
+    {
+        public string Key { get; set; } = "";
+        public string Text { get; set; } = "";
+    }
 }
