@@ -39,9 +39,12 @@ public partial class MainViewModel : ObservableObject
 
     /// <param name="settingsPath">Settings file (tests pass a temp file).</param>
     /// <param name="statePath">Progress file shown while idle (tests pass a temp file).</param>
-    /// <param name="profileDir">The app's browser profile, deleted by Sign out (tests pass a temp folder).</param>
-    internal MainViewModel(IDialogs dialogs, TeeTextWriter log, string? settingsPath = null, string? statePath = null, string? profileDir = null)
+    /// <param name="profileDir">The app's browser profile (tests pass a temp folder).</param>
+    /// <param name="signOut">Signs that profile out of Google (tests pass a fake, so no real account is touched).</param>
+    internal MainViewModel(IDialogs dialogs, TeeTextWriter log, string? settingsPath = null, string? statePath = null, string? profileDir = null,
+        Func<string, Task<string?>>? signOut = null)
     {
+        _signOut = signOut ?? Initlizer.SignOutAsync;
         _dialogs = dialogs;
         _statePath = statePath ?? FileItemsData.DEFAULT_PATH;
         _profileDir = profileDir ?? Initlizer.GetProfileDir();
@@ -108,7 +111,7 @@ public partial class MainViewModel : ObservableObject
     private bool _isRunning;
 
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(StartStopText))]
+    [NotifyPropertyChangedFor(nameof(StartStopText), nameof(CanPressStart))]
     private bool _isStopping;
 
     [ObservableProperty] private string _statusText = "Ready. Press Start to free up space in Google Photos.";
@@ -147,6 +150,11 @@ public partial class MainViewModel : ObservableObject
     [RelayCommand]
     private async Task StartStop()
     {
+        if (IsSigningOut)
+        {
+            return; // both use the browser profile
+        }
+
         if (IsRunning)
         {
             RequestStop();
@@ -509,25 +517,36 @@ public partial class MainViewModel : ObservableObject
     }
 
     private readonly string _profileDir;
+    private readonly Func<string, Task<string?>> _signOut;
 
     /// <summary>The app's browser profile exists (someone signed in, or at least started a run).</summary>
     [ObservableProperty]
     [NotifyCanExecuteChangedFor(nameof(SignOutCommand))]
     private bool _isSignedIn;
 
-    private bool CanSignOut() => IsIdle && IsSignedIn;
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SignOutCommand))]
+    [NotifyPropertyChangedFor(nameof(CanPressStart), nameof(SignOutText))]
+    private bool _isSigningOut;
+
+    /// <summary>Start/Stop is off while stopping, and while signing out (both use the browser profile).</summary>
+    public bool CanPressStart => IsStopping == false && IsSigningOut == false;
+
+    public string SignOutText => IsSigningOut ? "Signing out…" : "Sign out";
+
+    private bool CanSignOut() => IsIdle && IsSignedIn && IsSigningOut == false;
 
     /// <summary>
-    /// Signs the app out of Google after asking: deletes its own browser profile. Progress, settings and files
-    /// stay; the next Start asks to sign in again (maybe with another account).
+    /// Signs the app's browser out of Google after asking, like Google's own "Sign out": the accounts stay listed,
+    /// so signing back in is choosing one and typing its password. Progress, settings and files stay.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanSignOut))]
     private async Task SignOut()
     {
         bool ok = await _dialogs.AskYesNo("Sign out of Google?",
-            "The app forgets your Google sign-in: its own Chrome profile (sign-in, cookies, history) is deleted. " +
-            "Your normal Chrome is not affected. Progress, settings and the files on this PC stay. " +
-            "The next Start asks you to sign in again." + Environment.NewLine + Environment.NewLine +
+            "Signs the app's browser out of Google, like Google's own \"Sign out\". Your accounts stay in its list, so the next " +
+            "Start shows them and you sign back in by choosing one and typing its password. " +
+            "Your normal Chrome is not affected. Progress, settings and the files on this PC stay." + Environment.NewLine + Environment.NewLine +
             "If you then sign in with a different account, items already in progress belong to the old one: finish them first.",
             "Sign out", "Cancel");
         if (ok == false)
@@ -535,15 +554,23 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        string? error = Initlizer.SignOut(_profileDir);
-        IsSignedIn = Initlizer.HasProfile(_profileDir);
-        if (error == null)
+        IsSigningOut = true;
+        SetStatus("Signing out of Google…");
+        try
         {
-            SetStatus("Signed out of Google. Press Start to sign in again.");
+            string? error = await _signOut(_profileDir);
+            if (error == null)
+            {
+                SetStatus("Signed out of Google. Press Start to sign in again.");
+            }
+            else
+            {
+                SetStatus(error, error: true);
+            }
         }
-        else
+        finally
         {
-            SetStatus(error, error: true);
+            IsSigningOut = false;
         }
     }
 

@@ -79,7 +79,7 @@ namespace GooglePhotosAutoCompressor.UiTests
         }
 
         /// <param name="firstStart">False: the first-start page was answered earlier (as for most starts).</param>
-        private (MainWindow window, MainViewModel vm, FakeDialogs dialogs) Open(bool firstStart = false)
+        private (MainWindow window, MainViewModel vm, FakeDialogs dialogs) Open(bool firstStart = false, Func<string, Task<string?>>? signOut = null)
         {
             if (firstStart == false && File.Exists(SettingsPath) == false)
             {
@@ -88,7 +88,7 @@ namespace GooglePhotosAutoCompressor.UiTests
 
             var dialogs = new FakeDialogs();
             var log = new TeeTextWriter(null, null);
-            var vm = new MainViewModel(dialogs, log, SettingsPath, StatePath, ProfileDir);
+            var vm = new MainViewModel(dialogs, log, SettingsPath, StatePath, ProfileDir, signOut ?? (_ => throw new InvalidOperationException("UI tests must not sign out of Google")));
             var window = new MainWindow { DataContext = vm, Width = 1040, Height = 760 };
             _windows.Add(window);
             window.Show();
@@ -341,13 +341,16 @@ namespace GooglePhotosAutoCompressor.UiTests
         }
 
         [AvaloniaFact]
-        public async Task Sign_out_asks_first_and_deletes_only_the_apps_browser_profile()
+        public async Task Sign_out_asks_first_signs_out_through_google_and_keeps_the_profile()
         {
             Directory.CreateDirectory(Path.Combine(ProfileDir, "Default"));
             File.WriteAllText(Path.Combine(ProfileDir, "Default", "Cookies"), "x");
             new FileItemsData(StatePath).Save();
+            var signedOut = new List<string>();
+            var release = new TaskCompletionSource<string?>();
+            Func<string, Task<string?>> fakeSignOut = dir => { signedOut.Add(dir); return release.Task; };
 
-            (MainWindow window, MainViewModel vm, FakeDialogs dialogs) = Open();
+            (MainWindow window, MainViewModel vm, FakeDialogs dialogs) = Open(signOut: fakeSignOut);
             Button signOut = window.GetVisualDescendantsOfType<Button>().Single(b => b.Content as string == "Sign out");
             Assert.True(signOut.IsEffectivelyVisible);
             Screenshot(window, "1e-header-sign-out");
@@ -355,20 +358,24 @@ namespace GooglePhotosAutoCompressor.UiTests
             dialogs.Answer = false;
             await vm.SignOutCommand.ExecuteAsync(null);
             Assert.Contains("Sign out of Google?", dialogs.Asked);
-            Assert.True(Directory.Exists(ProfileDir)); // cancelled
+            Assert.Empty(signedOut); // cancelled
 
             vm.IsRunning = true;
             Assert.False(vm.SignOutCommand.CanExecute(null)); // Chrome uses the profile during a run
             vm.IsRunning = false;
 
             dialogs.Answer = true;
-            await vm.SignOutCommand.ExecuteAsync(null);
-            Assert.False(Directory.Exists(ProfileDir));
-            Assert.True(File.Exists(StatePath)); // progress stays
-            Assert.False(vm.IsSignedIn);
+            Task running = vm.SignOutCommand.ExecuteAsync(null);
+            Assert.Equal(new[] { ProfileDir }, signedOut);
+            Assert.False(vm.CanPressStart);              // no Start while the profile is in use
+            Assert.Equal("Signing out…", vm.SignOutText);
+            release.SetResult(null);
+            await running;
+
+            Assert.True(vm.CanPressStart);
+            Assert.True(Directory.Exists(ProfileDir));    // the profile and its account list stay
+            Assert.True(File.Exists(StatePath));
             Assert.StartsWith("Signed out", vm.StatusText);
-            Dispatcher.UIThread.RunJobs();
-            Assert.False(signOut.IsEffectivelyVisible); // nobody to sign out any more
         }
 
         [AvaloniaFact]

@@ -39,6 +39,9 @@ namespace GooglePhotosAutoCompressor
         /// <summary>Items by upload time, newest first: where fresh uploads are found.</summary>
         public const string RECENTLY_ADDED_URL = "https://photos.google.com/search/_tra_?hl=" + Const.LOCALE;
 
+        /// <summary>Google's sign-out page: signs out every account of the browser but keeps them listed for signing back in.</summary>
+        public const string SIGN_OUT_URL = "https://accounts.google.com/Logout?hl=" + Const.LOCALE;
+
         public static string ViewerUrl(string mediaKey) => $"https://photos.google.com/photo/{mediaKey}?hl={Const.LOCALE}";
 
         public static string TileByMediaKey(string mediaKey) => $"[data-media-key='{mediaKey}']";

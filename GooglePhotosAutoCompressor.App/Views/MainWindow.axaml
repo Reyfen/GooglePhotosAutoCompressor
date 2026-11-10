@@ -25,12 +25,12 @@
                      Text="Replaces your biggest videos and photos in Google Photos with smaller copies." />
         </StackPanel>
         <!-- Asks first; off during a run (Chrome uses the profile) and when nobody signed in yet. -->
-        <Button Grid.Column="2" Content="Sign out" Command="{Binding SignOutCommand}" Margin="0,0,10,0"
+        <Button Grid.Column="2" Content="{Binding SignOutText}" Command="{Binding SignOutCommand}" Margin="0,0,10,0"
                 VerticalAlignment="Center" IsVisible="{Binding IsSignedIn}"
-                ToolTip.Tip="Forget the Google sign-in of this app (asks first)" />
+                ToolTip.Tip="Sign the app's browser out of Google; your accounts stay listed for signing back in (asks first)" />
         <Button Grid.Column="3" Classes="big" Classes.primary="{Binding IsIdle}" Classes.danger="{Binding IsRunning}"
                 Content="{Binding StartStopText}" Command="{Binding StartStopCommand}"
-                IsEnabled="{Binding !IsStopping}" MinWidth="130" HorizontalContentAlignment="Center"
+                IsEnabled="{Binding CanPressStart}" MinWidth="130" HorizontalContentAlignment="Center"
                 ToolTip.Tip="Start a run, or stop at the next safe point" />
       </Grid>
     </Border>

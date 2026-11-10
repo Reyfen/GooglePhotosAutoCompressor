@@ -67,27 +67,60 @@ namespace GooglePhotosAutoCompressor.Modules
             Directory.Exists(profileDir) && Directory.EnumerateFileSystemEntries(profileDir).Any();
 
         /// <summary>
-        /// Signs the app out of Google by deleting its own browser profile (sign-in, cookies, history). The
-        /// user's normal Chrome is a different profile and is not touched; progress and files are not either.
-        /// Chrome must not be running with this profile (no run going). Returns null when done, else why not.
+        /// Signs the app's browser out of Google the way Google's own "Sign out" does: the profile is kept, so the
+        /// accounts stay listed as "signed out" in Google's account chooser and one can sign back in by picking it.
+        /// Opens the app's profile without a window, visits Google's sign-out page, then checks that Google Photos
+        /// asks for a sign-in. Chrome must not be running with this profile (no run going).
+        /// Returns null when signed out, else what went wrong.
         /// </summary>
-        internal static string? SignOut(string profileDir)
+        internal static async Task<string?> SignOutAsync(string profileDir)
         {
-            if (Directory.Exists(profileDir) == false)
+            if (HasProfile(profileDir) == false)
             {
                 return null;
             }
 
+            using IPlaywright playwright = await Playwright.CreateAsync();
+            IBrowserContext context;
             try
             {
-                Directory.Delete(profileDir, recursive: true);
-                Console.WriteLine($"Signed out: deleted the browser profile {profileDir}");
+                context = await Launch(playwright, profileDir, "chrome", headless: true);
+            }
+            catch (PlaywrightException)
+            {
+                try
+                {
+                    context = await Launch(playwright, profileDir, channel: null, headless: true);
+                }
+                catch (PlaywrightException e)
+                {
+                    return $"Could not open the app's browser ({FirstLine(e.Message)}). Close any Chrome window the app opened and try again.";
+                }
+            }
+
+            try
+            {
+                IPage page = context.Pages.FirstOrDefault() ?? await context.NewPageAsync();
+                await page.GotoAsync(Selectors.SIGN_OUT_URL);
+                await page.WaitForLoadStateAsync(LoadState.NetworkIdle, new() { Timeout = 20_000 });
+
+                // Signed out when Google Photos sends us to the sign-in page instead of the library.
+                await page.GotoAsync($"https://photos.google.com/?hl={Const.LOCALE}");
+                if (page.Url.StartsWith("https://photos.google.com", StringComparison.Ordinal))
+                {
+                    return "Google still shows this browser as signed in. Try again, or sign out in the Chrome window during a run.";
+                }
+
+                Console.WriteLine("Signed out of Google (accounts stay listed for signing in again).");
                 return null;
             }
-            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            catch (Exception e) when (e is PlaywrightException or TimeoutException)
             {
-                // Usually a Chrome window of this profile is still open.
-                return $"Could not delete {profileDir}: {e.Message} Close any Chrome window the app opened and try again.";
+                return $"Could not sign out: {FirstLine(e.Message)}. Check the internet connection and try again.";
+            }
+            finally
+            {
+                await context.CloseAsync();
             }
         }
 
