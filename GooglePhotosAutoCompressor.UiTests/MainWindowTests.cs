@@ -72,7 +72,9 @@ namespace GooglePhotosAutoCompressor.UiTests
         }
 
         private string SettingsPath => Path.Combine(_dir, "settings.json");
-        private string StatePath => Path.Combine(_dir, "state.json");
+        /// <summary>The account the tests "used last": its progress file is what the window shows.</summary>
+        private const string ACCOUNT = "tester@example.com";
+        private string StatePath => Accounts.ProgressPath(ACCOUNT, _dir);
         /// <summary>Never the real profile: Sign out deletes it.</summary>
         private string ProfileDir => Path.Combine(_dir, "chrome-profile");
 
@@ -94,12 +96,12 @@ namespace GooglePhotosAutoCompressor.UiTests
         {
             if (firstStart == false && File.Exists(SettingsPath) == false)
             {
-                new Settings { SetupDone = true }.Save(SettingsPath);
+                new Settings { SetupDone = true, LastAccount = ACCOUNT }.Save(SettingsPath);
             }
 
             var dialogs = new FakeDialogs();
             var log = new TeeTextWriter(null, null);
-            var vm = new MainViewModel(dialogs, log, SettingsPath, StatePath, ProfileDir, signOut ?? (_ => throw new InvalidOperationException("UI tests must not sign out of Google")));
+            var vm = new MainViewModel(dialogs, log, SettingsPath, _dir, ProfileDir, signOut ?? (_ => throw new InvalidOperationException("UI tests must not sign out of Google")));
             var window = new MainWindow { DataContext = vm, Width = 1040, Height = 760 };
             _windows.Add(window);
             window.Show();
@@ -409,9 +411,11 @@ namespace GooglePhotosAutoCompressor.UiTests
             dialogs.Answer = true;
             await vm.SignOutCommand.ExecuteAsync(null);
             Assert.False(Directory.Exists(ProfileDir));
-            Assert.True(File.Exists(StatePath)); // progress stays
+            Assert.False(File.Exists(StatePath)); // owner's choice: progress and stats go too
+            Assert.Equal("", vm.Settings.LastAccount);
+            Assert.Equal(0, vm.DoneCount);
             Assert.False(vm.IsSignedIn);
-            Assert.StartsWith("All login data deleted", vm.StatusText);
+            Assert.StartsWith("All login data, progress and stats deleted", vm.StatusText);
         }
 
         [AvaloniaFact]
@@ -428,6 +432,30 @@ namespace GooglePhotosAutoCompressor.UiTests
             Assert.Contains("danger", red.Classes);
             Assert.True(red.TranslatePoint(new Point(0, 0), dialog)!.Value.X < signOut.TranslatePoint(new Point(0, 0), dialog)!.Value.X);
             Assert.Equal(DialogChoice.Cancel, dialog.Choice); // closing without a click is Cancel
+        }
+
+        [AvaloniaFact]
+        public async Task Stats_belong_to_the_last_account_and_show_zero_after_sign_out()
+        {
+            SeedState();
+            Directory.CreateDirectory(ProfileDir);
+            File.WriteAllText(Path.Combine(ProfileDir, "Cookies"), "x");
+            (MainWindow window, MainViewModel vm, FakeDialogs dialogs) = Open(signOut: _ => Task.FromResult<string?>(null));
+            Assert.Equal(1, vm.DoneCount);
+            Assert.Contains(window.GetVisualDescendantsOfType<TextBlock>(), t => t.Text == ACCOUNT && t.IsEffectivelyVisible);
+
+            dialogs.Answer = true;
+            await vm.SignOutCommand.ExecuteAsync(null);
+
+            Assert.Equal(0, vm.DoneCount);                 // signed out: zero
+            Assert.Empty(vm.Items);
+            Assert.True(File.Exists(StatePath));           // the account's progress stays
+            Assert.Equal("", Settings.Load(SettingsPath).LastAccount);
+
+            // Signing in again with that account (a run reports it) brings its stats back.
+            vm.Settings.LastAccount = ACCOUNT;
+            (_, MainViewModel again, _) = Open();
+            Assert.Equal(1, again.DoneCount);
         }
 
         [AvaloniaFact]

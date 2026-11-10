@@ -91,6 +91,24 @@ namespace GooglePhotosAutoCompressor.Modules
             return Path.Combine(Settings.CONFIG_DIR, "chrome-profile");
         }
 
+        /// <summary>
+        /// The signed-in account's email, from the account button of Google Photos (read-only). Null when it can't be
+        /// read; the run then stops rather than risk mixing two accounts' progress.
+        /// </summary>
+        internal static async Task<string?> ReadAccountAsync(IPage page)
+        {
+            ILocator button = page.Locator(Selectors.ACCOUNT_BUTTON).First;
+            try
+            {
+                await button.WaitForAsync(new() { State = WaitForSelectorState.Attached, Timeout = 15_000 });
+                return Accounts.ParseEmail(await button.GetAttributeAsync("aria-label"));
+            }
+            catch (TimeoutException)
+            {
+                return null;
+            }
+        }
+
         /// <summary>True when the app's browser profile exists, i.e. someone may be signed in.</summary>
         internal static bool HasProfile(string profileDir) =>
             Directory.Exists(profileDir) && Directory.EnumerateFileSystemEntries(profileDir).Any();

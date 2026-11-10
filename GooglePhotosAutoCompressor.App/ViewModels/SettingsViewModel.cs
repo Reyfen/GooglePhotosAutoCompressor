@@ -41,6 +41,13 @@ public partial class SettingsViewModel : ObservableObject
     [ObservableProperty] private string _workFolder = "";
     [ObservableProperty] private bool _setupDone;
 
+    /// <summary>Google account of the last run: the window shows its stats. Set by runs, cleared by Sign out.</summary>
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(AccountText))]
+    private string _lastAccount = "";
+
+    public string AccountText => string.IsNullOrEmpty(LastAccount) ? "" : LastAccount;
+
     [ObservableProperty] private string _savedText = "";
 
     /// <summary>
@@ -103,6 +110,7 @@ public partial class SettingsViewModel : ObservableObject
         DeleteLocalFilesWhenDone = DeleteLocalFilesWhenDone,
         WorkFolder = WorkFolder ?? "",
         SetupDone = SetupDone,
+        LastAccount = LastAccount ?? "",
     }.Normalized();
 
     private void Load(Settings s)
@@ -126,6 +134,7 @@ public partial class SettingsViewModel : ObservableObject
         DeleteLocalFilesWhenDone = s.DeleteLocalFilesWhenDone;
         WorkFolder = s.WorkFolder;
         SetupDone = s.SetupDone;
+        LastAccount = s.LastAccount;
         _loading = false;
         Settings.Current = s.Normalized();
     }
@@ -141,7 +150,7 @@ public partial class SettingsViewModel : ObservableObject
         if (e.PropertyName == nameof(SetupDone)) OnPropertyChanged(nameof(ShowSetup));
 
         if (_loading || e.PropertyName is nameof(SavedText) or nameof(VideoQualityText) or nameof(PhotoQualityText) or nameof(WorkFolderHint)
-                or nameof(StopAfterEachBatch) or nameof(ShowSetup) or nameof(RunIsGoing) or nameof(IsLocked))
+                or nameof(StopAfterEachBatch) or nameof(ShowSetup) or nameof(RunIsGoing) or nameof(IsLocked) or nameof(AccountText))
         {
             return;
         }
@@ -151,7 +160,10 @@ public partial class SettingsViewModel : ObservableObject
             Settings settings = ToSettings();
             settings.Save(_path);
             Settings.Current = settings;
-            SavedText = RunIsGoing ? "Saved. Used by this run from the next batch." : "Saved. Used from the next run.";
+            if (e.PropertyName != nameof(LastAccount)) // not something the user changed on this page
+            {
+                SavedText = RunIsGoing ? "Saved. Used by this run from the next batch." : "Saved. Used from the next run.";
+            }
         }
         catch (Exception ex) when (ex is IOException or UnauthorizedAccessException)
         {

@@ -39,6 +39,9 @@ namespace GooglePhotosAutoCompressor
         /// <summary>Items by upload time, newest first: where fresh uploads are found.</summary>
         public const string RECENTLY_ADDED_URL = "https://photos.google.com/search/_tra_?hl=" + Const.LOCALE;
 
+        /// <summary>Account button (top right); its label is "Google Account: Name" and "(email)" on a second line.</summary>
+        public const string ACCOUNT_BUTTON = "a[aria-label^='Google Account:']";
+
         /// <summary>Google's sign-out page: signs out every account of the browser but keeps them listed for signing back in.</summary>
         public const string SIGN_OUT_URL = "https://accounts.google.com/Logout?hl=" + Const.LOCALE;
 

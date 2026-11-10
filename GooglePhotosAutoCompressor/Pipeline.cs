@@ -38,6 +38,9 @@ namespace GooglePhotosAutoCompressor
         /// <summary>Stage and a short message for the user.</summary>
         public Action<PipelineStage, string> StageChanged { get; init; } = (_, message) => Console.WriteLine($"--- {message}");
 
+        /// <summary>The signed-in Google account (email), read after sign-in. Its progress is loaded next.</summary>
+        public Action<string> AccountDetected { get; init; } = account => Console.WriteLine($"Account: {account}");
+
         /// <summary>The state file was loaded; the UI can show and watch the items.</summary>
         public Action<FileItemsData> StateLoaded { get; init; } = _ => { };
     }
@@ -91,8 +94,6 @@ namespace GooglePhotosAutoCompressor
                 }
 
                 Ffmpeg ffmpeg = new(ffmpegPath);
-                FileItemsData files = new();
-                _host.StateLoaded(files);
 
                 await WaitForInternet(cancellationToken);
 
@@ -104,6 +105,20 @@ namespace GooglePhotosAutoCompressor
                     () => Initlizer.Login(page, cancellationToken,
                         () => Stage(PipelineStage.SigningIn, "Sign in to Google in the Chrome window. The app waits for you.")),
                     cancellationToken, stopOnError: true);
+
+                // Progress is per account (see Accounts): find out whose library this is before touching any item.
+                string? account = await Initlizer.ReadAccountAsync(page);
+                if (account == null)
+                {
+                    return Fail("Could not tell which Google account is signed in, so the run stopped (progress is kept per account). " +
+                                "Check that Google Photos opened in the Chrome window and press Start again.");
+                }
+
+                string progressPath = Accounts.ProgressPath(account);
+                Accounts.AdoptSharedProgress(FileItemsData.DEFAULT_PATH, progressPath);
+                _host.AccountDetected(account);
+                FileItemsData files = new(progressPath);
+                _host.StateLoaded(files);
 
                 for (int batch = 1; ; batch++)
                 {
@@ -338,10 +353,11 @@ namespace GooglePhotosAutoCompressor
         /// <summary>
         /// Everything in the work folders goes, except copies still waiting to be uploaded whose original is
         /// already in the Google Photos bin: without them the item could not be finished (data-safety rule).
+        /// <paramref name="states"/>: the progress of every account, since they share the work folders.
         /// </summary>
-        public static CleanPlan PlanClean(FileItemsData? files, params string[] dirs)
+        public static CleanPlan PlanClean(IReadOnlyList<FileItemsData> states, params string[] dirs)
         {
-            HashSet<string> needed = new((files?.Snapshot() ?? Array.Empty<FileItem>())
+            HashSet<string> needed = new(states.SelectMany(s => s.Snapshot())
                 .Where(i => i.OriginalDeleted && i.CompressUploaded == false && string.IsNullOrEmpty(i.CompressPath) == false)
                 .Select(i => Path.GetFullPath(i.CompressPath!)), StringComparer.OrdinalIgnoreCase);
 
@@ -373,7 +389,7 @@ namespace GooglePhotosAutoCompressor
         /// folders, and updates the progress file: an item whose checked copy is gone is no longer "compressed",
         /// so the next run downloads and compresses it again instead of getting stuck. Returns files and bytes deleted.
         /// </summary>
-        public static (int files, long bytes) Clean(FileItemsData? files, CleanPlan plan, params string[] dirs)
+        public static (int files, long bytes) Clean(IReadOnlyList<FileItemsData> states, CleanPlan plan, params string[] dirs)
         {
             int deleted = 0;
             long bytes = 0;
@@ -406,7 +422,7 @@ namespace GooglePhotosAutoCompressor
                 }
             }
 
-            if (files != null)
+            foreach (FileItemsData files in states)
             {
                 foreach (FileItem item in files.Snapshot())
                 {

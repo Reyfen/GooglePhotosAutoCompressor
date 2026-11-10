@@ -80,6 +80,12 @@ namespace GooglePhotosAutoCompressor
         /// <summary>Where downloads and compressed copies are kept. Empty means Downloads/GooglePhotosAutoCompressor.</summary>
         public string WorkFolder { get; set; } = "";
 
+        /// <summary>
+        /// The Google account of the last run, whose progress and stats the window shows. Empty after Sign out
+        /// (the window then shows zero; the account's progress file stays).
+        /// </summary>
+        public string LastAccount { get; set; } = "";
+
         /// <summary>The first-start page was answered. Missing in older settings files, so they see it once too.</summary>
         public bool SetupDone { get; set; }
 
@@ -112,6 +118,7 @@ namespace GooglePhotosAutoCompressor
             s.MinFreeDiskGb = Math.Clamp(s.MinFreeDiskGb, 0, 10_000);
             s.MaxFails = Math.Clamp(s.MaxFails, 1, 100);
             s.WorkFolder = s.WorkFolder?.Trim() ?? "";
+            s.LastAccount = s.LastAccount?.Trim().ToLowerInvariant() ?? "";
             return s;
         }
 

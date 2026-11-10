@@ -32,12 +32,12 @@ namespace GooglePhotosAutoCompressor.Tests
             string partial = File(Originals, "d4/D.mp4.part");
             state.Save();
 
-            LocalFiles.CleanPlan plan = LocalFiles.PlanClean(state, Originals, Compressed);
+            LocalFiles.CleanPlan plan = LocalFiles.PlanClean(new[] { state }, Originals, Compressed);
             Assert.Equal(new[] { waiting.CompressPath }, plan.Keep);
             Assert.Equal(20, plan.KeepBytes);
             Assert.Equal(6, plan.Delete.Count);
 
-            (int files, long bytes) = LocalFiles.Clean(state, plan, Originals, Compressed);
+            (int files, long bytes) = LocalFiles.Clean(new[] { state }, plan, Originals, Compressed);
 
             Assert.Equal(6, files);
             Assert.Equal(60, bytes);
@@ -58,9 +58,9 @@ namespace GooglePhotosAutoCompressor.Tests
         [Fact]
         public void Works_without_a_progress_file_or_folders()
         {
-            LocalFiles.CleanPlan plan = LocalFiles.PlanClean(null, Originals, Compressed);
+            LocalFiles.CleanPlan plan = LocalFiles.PlanClean(Array.Empty<FileItemsData>(), Originals, Compressed);
             Assert.Empty(plan.Delete);
-            Assert.Equal((0, 0L), LocalFiles.Clean(null, plan, Originals, Compressed));
+            Assert.Equal((0, 0L), LocalFiles.Clean(Array.Empty<FileItemsData>(), plan, Originals, Compressed));
         }
     }
 }

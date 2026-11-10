@@ -14,7 +14,7 @@
     <!-- Header -->
     <Border DockPanel.Dock="Top" Padding="20,14" Background="{DynamicResource CardBrush}"
             BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,0,0,1">
-      <Grid ColumnDefinitions="Auto,*,Auto,Auto">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto">
         <Image Source="avares://GooglePhotosAutoCompressor/Assets/icon.png" Width="40" Height="40" />
         <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
           <TextBlock FontSize="18" FontWeight="SemiBold">
@@ -25,10 +25,14 @@
                      Text="Replaces your biggest videos and photos in Google Photos with smaller copies." />
         </StackPanel>
         <!-- Asks first; off during a run (Chrome uses the profile) and when nobody signed in yet. -->
-        <Button Grid.Column="2" Content="{Binding SignOutText}" Command="{Binding SignOutCommand}" Margin="0,0,10,0"
+        <!-- Whose stats are shown (the last account; empty when signed out). -->
+        <TextBlock Grid.Column="2" Classes="muted" FontSize="12" VerticalAlignment="Center" Margin="0,0,10,0"
+                   Text="{Binding Settings.AccountText}" IsVisible="{Binding Settings.AccountText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                   ToolTip.Tip="The Google account whose progress and stats are shown" />
+        <Button Grid.Column="3" Content="{Binding SignOutText}" Command="{Binding SignOutCommand}" Margin="0,0,10,0"
                 VerticalAlignment="Center" IsVisible="{Binding IsSignedIn}"
                 ToolTip.Tip="Sign the app's browser out of Google; your accounts stay listed for signing back in (asks first)" />
-        <Button Grid.Column="3" Classes="big" Classes.primary="{Binding IsIdle}" Classes.danger="{Binding IsRunning}"
+        <Button Grid.Column="4" Classes="big" Classes.primary="{Binding IsIdle}" Classes.danger="{Binding IsRunning}"
                 Content="{Binding StartStopText}" Command="{Binding StartStopCommand}"
                 IsEnabled="{Binding CanPressStart}" MinWidth="130" HorizontalContentAlignment="Center"
                 ToolTip.Tip="Start a run, or stop at the next safe point" />

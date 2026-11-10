@@ -47,18 +47,24 @@ public partial class MainViewModel : ObservableObject
     private DateTime _startedAt;
     private FileItem? _compressing;
 
-    private readonly string _statePath;
+    /// <summary>Folder holding accounts/&lt;email&gt;.json (progress per account) and the shared progress.json of older versions.</summary>
+    private readonly string _accountsRoot;
+    private readonly string _sharedStatePath;
+
+    /// <summary>Progress file of the last account (the one the stats show), or null when signed out.</summary>
+    private string? CurrentStatePath => string.IsNullOrEmpty(Settings.LastAccount) ? null : Accounts.ProgressPath(Settings.LastAccount, _accountsRoot);
 
     /// <param name="settingsPath">Settings file (tests pass a temp file).</param>
-    /// <param name="statePath">Progress file shown while idle (tests pass a temp file).</param>
+    /// <param name="accountsRoot">Folder with the per-account progress files (tests pass a temp folder).</param>
     /// <param name="profileDir">The app's browser profile (tests pass a temp folder).</param>
     /// <param name="signOut">Signs that profile out of Google (tests pass a fake, so no real account is touched).</param>
-    internal MainViewModel(IDialogs dialogs, TeeTextWriter log, string? settingsPath = null, string? statePath = null, string? profileDir = null,
+    internal MainViewModel(IDialogs dialogs, TeeTextWriter log, string? settingsPath = null, string? accountsRoot = null, string? profileDir = null,
         Func<string, Task<string?>>? signOut = null)
     {
         _signOut = signOut ?? Initlizer.SignOutAsync;
         _dialogs = dialogs;
-        _statePath = statePath ?? FileItemsData.DEFAULT_PATH;
+        _accountsRoot = accountsRoot ?? Const.APP_DOWNLOADS_PATH;
+        _sharedStatePath = accountsRoot == null ? FileItemsData.DEFAULT_PATH : Path.Combine(accountsRoot, "progress.json");
         _profileDir = profileDir ?? Initlizer.GetProfileDir();
         IsSignedIn = Initlizer.HasProfile(_profileDir);
         Settings = new SettingsViewModel(settingsPath ?? Settings_DEFAULT_PATH, dialogs.PickFolder);
@@ -197,6 +203,8 @@ public partial class MainViewModel : ObservableObject
             AskYesNo = question => OnUi(() => _dialogs.AskYesNo("ffmpeg needed", question, "Download", "Cancel")),
             ConfirmBin = items => OnUi(() => ConfirmBin(items)),
             StageChanged = (stage, message) => Dispatcher.UIThread.Post(() => OnStage(stage, message)),
+            // The stats now belong to this account (remembered for the next start, cleared by Sign out).
+            AccountDetected = account => Dispatcher.UIThread.Post(() => Settings.LastAccount = account),
             StateLoaded = state => Dispatcher.UIThread.Post(() => AttachState(state)),
         };
         var pipeline = new Pipeline(host);
@@ -414,17 +422,22 @@ public partial class MainViewModel : ObservableObject
         }
     });
 
-    /// <summary>Shows the items from the last run while nothing is running.</summary>
+    /// <summary>
+    /// Shows the items of the last account while nothing is running: zero when signed out (no last account) or when
+    /// that account has no progress yet.
+    /// </summary>
     private void LoadStateForDisplay()
     {
         try
         {
-            if (File.Exists(_statePath) || File.Exists(_statePath + ".bak"))
+            string? path = CurrentStatePath;
+            if (path != null && (File.Exists(path) || File.Exists(path + ".bak")))
             {
-                AttachState(new FileItemsData(_statePath));
+                AttachState(new FileItemsData(path));
             }
             else
             {
+                _state = null;
                 RefreshItems();
             }
         }
@@ -580,6 +593,9 @@ public partial class MainViewModel : ObservableObject
             string? error = await _signOut(_profileDir);
             if (error == null)
             {
+                // Stats show zero while signed out; the account's progress stays and comes back with it.
+                Settings.LastAccount = "";
+                LoadStateForDisplay();
                 SetStatus("Signed out of Google. Press Start to sign in again.");
             }
             else
@@ -595,11 +611,19 @@ public partial class MainViewModel : ObservableObject
 
     private async Task DeleteLoginData()
     {
+        // Owner's choice (2026-11-10): the progress and stats of every account go too. Say what that loses.
+        FileItem[] all = LoadAllAccounts().SelectMany(s => s.Snapshot()).ToArray();
+        int waitingForUpload = all.Count(i => i.OriginalDeleted && i.CompressUploaded == false);
+        int unfinished = all.Count(i => ItemRules.IsDone(i) == false && ItemRules.IsInProgress(i));
+        string loss = waitingForUpload > 0
+            ? $"{Environment.NewLine}{Environment.NewLine}Warning: {waitingForUpload} item(s) have their original in the Google Photos bin and their copy " +
+              "not uploaded yet. After this the app forgets them: restore the originals from the bin yourself (60 days) or upload the copies from the Compressed folder."
+            : unfinished > 0 ? $"{Environment.NewLine}{Environment.NewLine}{unfinished} unfinished item(s) start again from the beginning next time." : "";
         bool sure = await _dialogs.AskYesNo("Delete all login data?",
-            "Permanently deletes the app's browser profile: every Google account in its list, cookies and history. " +
-            "This cannot be undone. The next Start asks you to sign in from scratch (email, password, 2-step verification)." +
-            Environment.NewLine + Environment.NewLine +
-            "Your normal Chrome is not affected. Progress, settings and the files on this PC stay.",
+            "Permanently deletes the app's browser profile (every Google account in its list, cookies and history) and the " +
+            "progress and stats of every account. This cannot be undone. The next Start asks you to sign in from scratch " +
+            "(email, password, 2-step verification)." + loss + Environment.NewLine + Environment.NewLine +
+            "Your normal Chrome is not affected. Settings and the files on this PC stay.",
             "Delete permanently", "Cancel");
         if (sure == false)
         {
@@ -610,7 +634,11 @@ public partial class MainViewModel : ObservableObject
         IsSignedIn = Initlizer.HasProfile(_profileDir);
         if (error == null)
         {
-            SetStatus("All login data deleted. Press Start to sign in again.");
+            int files = Accounts.DeleteAllProgress(_accountsRoot, _sharedStatePath);
+            Console.WriteLine($"Deleted the progress of every account ({files} file(s)).");
+            Settings.LastAccount = "";
+            LoadStateForDisplay();
+            SetStatus("All login data, progress and stats deleted. Press Start to sign in again.");
         }
         else
         {
@@ -635,8 +663,9 @@ public partial class MainViewModel : ObservableObject
     private async Task CleanWorkFolder()
     {
         string[] dirs = { FilePaths.DOWNLOAD_DIR, FilePaths.COMPRESS_DIR };
-        FileItemsData? state = File.Exists(_statePath) || File.Exists(_statePath + ".bak") ? new FileItemsData(_statePath) : null;
-        LocalFiles.CleanPlan plan = LocalFiles.PlanClean(state, dirs);
+        // Every account's progress: they share the work folders, and none may lose a copy it still has to upload.
+        IReadOnlyList<FileItemsData> states = LoadAllAccounts();
+        LocalFiles.CleanPlan plan = LocalFiles.PlanClean(states, dirs);
         if (plan.Delete.Count == 0)
         {
             await _dialogs.AskYesNo("Nothing to clean", plan.Keep.Count > 0
@@ -660,10 +689,13 @@ public partial class MainViewModel : ObservableObject
             return;
         }
 
-        (int files, long bytes) = LocalFiles.Clean(state, plan, dirs);
+        (int files, long bytes) = LocalFiles.Clean(states, plan, dirs);
         SetStatus($"Deleted {files} file(s), {Format.Bytes(bytes)}, from the work folder.");
         LoadStateForDisplay();
     }
+
+    private IReadOnlyList<FileItemsData> LoadAllAccounts() =>
+        Accounts.AllProgressFiles(_accountsRoot, _sharedStatePath).Select(path => new FileItemsData(path)).ToList();
 
     [RelayCommand]
     private Task OpenLog() => _dialogs.Open(RunLog.CurrentPath ?? RunLog.LOG_DIR);

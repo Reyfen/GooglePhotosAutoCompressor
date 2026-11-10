@@ -9,7 +9,10 @@ namespace GooglePhotosAutoCompressor
     /// </summary>
     internal class FileItemsData
     {
-        /// <summary>Kept in the app's Downloads folder whatever the work folder is (moved there from Downloads by <see cref="AppFolderMigration"/>).</summary>
+        /// <summary>
+        /// The shared progress file of versions up to 1.0.1 (moved there from Downloads by <see cref="AppFolderMigration"/>).
+        /// Progress is now per account (<see cref="Accounts"/>); a run hands this file to the first account it sees.
+        /// </summary>
         public static readonly string DEFAULT_PATH = Path.Combine(Const.APP_DOWNLOADS_PATH, "progress.json");
 
         public readonly HashSet<FileItem> Items;

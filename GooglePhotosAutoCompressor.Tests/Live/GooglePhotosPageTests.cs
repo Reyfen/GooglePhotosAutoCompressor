@@ -48,6 +48,12 @@ namespace GooglePhotosAutoCompressor.Tests.Live
             Assert.True(lang.StartsWith("en", StringComparison.OrdinalIgnoreCase),
                 $"Page language is '{lang}', expected {Const.LOCALE}. Every selector relies on English labels.");
 
+            // Progress is per account: the run reads the email from the account button and stops without it.
+            string? account = null;
+            await Expect($"the account button ({Selectors.ACCOUNT_BUTTON}) to show the signed-in email", async () =>
+                account = await Initlizer.ReadAccountAsync(Page) ?? throw new InvalidOperationException("no email in the account button's label"));
+            _out.WriteLine($"account: {account![..Math.Min(2, account.Length)]}…@{account.Split('@').Last()}");
+
             await ExpectScreen("home",
                 "Is this the signed-in Google Photos main library (a grid of photos or videos), with the interface in English?");
         }
