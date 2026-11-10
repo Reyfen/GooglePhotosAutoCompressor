@@ -161,6 +161,14 @@ namespace GooglePhotosAutoCompressor.Modules
                         cancellationToken.ThrowIfCancellationRequested();
                         File.Move(partPath, path, true);
                         item.DownloadPath = path;
+                        if (MotionPhoto.Is(path))
+                        {
+                            // Before the size check: Google may send a motion photo without its video (smaller).
+                            MotionPhoto.LeaveAlone(item);
+                            itemsData.Save();
+                            return;
+                        }
+
                         if (DownloadCheck.SizeProblem(item, new FileInfo(path).Length) is string problem)
                         {
                             // Cut off or wrong file: never compress it. The next run downloads it again.

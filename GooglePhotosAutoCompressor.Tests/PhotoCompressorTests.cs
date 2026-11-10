@@ -283,5 +283,66 @@ namespace GooglePhotosAutoCompressor.Tests
             Assert.Equal((expectedW, expectedH), (tw, th));
             Assert.True((long)tw * th <= 16_000_000);
         }
+
+        // ---------- Motion photos: left alone, their video would be lost (2026-11-10) ----------
+
+        [Theory]
+        [InlineData("PXL_20250906_165308993.MP.jpg", true)]
+        [InlineData("PXL_20250906_165308993.MP~2.jpg", true)]
+        [InlineData("PXL_20250906_165308993.mp.JPG", true)]
+        [InlineData("PXL_20250602_164515695.jpg", false)]
+        [InlineData("PXL_20250602_164515695.PORTRAIT.jpg", false)]
+        [InlineData("MAP.jpg", false)]
+        public void Motion_photos_are_known_by_their_name(string name, bool expected)
+        {
+            Assert.Equal(expected, MotionPhoto.HasMotionName(name));
+        }
+
+        [Fact]
+        public void Motion_photos_are_known_by_their_xmp_whatever_the_name()
+        {
+            string path = MakeJpeg("samsung.jpg");
+            Assert.False(MotionPhoto.Is(path));
+            // Pixel: GCamera:MotionPhoto="1"; older: GCamera:MicroVideo="1".
+            File.WriteAllBytes(path, File.ReadAllBytes(path).Concat(System.Text.Encoding.ASCII.GetBytes("<x:xmpmeta GCamera:MotionPhoto=\"1\"/>")).ToArray());
+            Assert.False(MotionPhoto.Is(path)); // marker past the header (e.g. inside the video): not counted
+
+            byte[] header = System.Text.Encoding.ASCII.GetBytes("GCamera:MicroVideo=\"1\"");
+            string small = Path.Combine(_dir, "small.jpg");
+            File.WriteAllBytes(small, new byte[] { 0xFF, 0xD8 }.Concat(header).ToArray());
+            Assert.True(MotionPhoto.Is(small));
+        }
+
+        [Fact]
+        public void A_motion_photo_is_not_compressed_and_its_download_is_deleted()
+        {
+            string path = MakeJpeg("PXL_20250906_165308993.MP.jpg");
+            // Its download may be smaller than listed: must not count as a failure.
+            FileItem item = new() { MediaType = MediaType.Image, MediaKey = "mp", Size = 1, DownloadPath = path };
+
+            Assert.Equal(CompressResult.NotWorthIt, PhotoCompressor.CompressOne(item, OutDir));
+
+            Assert.True(item.CompressionSkipped);
+            Assert.Equal(0, item.FailCount);
+            Assert.Null(item.CompressPath);
+            Assert.Null(item.DownloadPath);
+            Assert.False(File.Exists(path));
+            Assert.False(ItemRules.IsReadyForBin(item));
+        }
+
+        [Fact]
+        public void A_motion_photo_copy_made_earlier_is_dropped_before_the_bin()
+        {
+            string path = MakeJpeg("PXL_20250906_165308993.MP.jpg");
+            FileItem item = ItemFor(path);
+            item.Verified = true;
+            item.CompressPath = MakeJpeg("copy.jpg");
+
+            MotionPhoto.LeaveAlone(item);
+
+            Assert.False(File.Exists(Path.Combine(_dir, "copy.jpg")));
+            Assert.False(ItemRules.IsReadyForBin(item));
+            Assert.False(ItemRules.CanUpload(item));
+        }
     }
 }

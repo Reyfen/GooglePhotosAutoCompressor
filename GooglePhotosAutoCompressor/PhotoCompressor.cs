@@ -24,6 +24,12 @@ namespace GooglePhotosAutoCompressor
         {
             bool hasSource = File.Exists(file.DownloadPath);
 
+            if (file.OriginalDeleted == false && (MotionPhoto.Is(file.DownloadPath) || MotionPhoto.Is(file.CompressPath)))
+            {
+                MotionPhoto.LeaveAlone(file);
+                return CompressResult.NotWorthIt;
+            }
+
             if (string.IsNullOrEmpty(file.CompressPath) == false && File.Exists(file.CompressPath))
             {
                 if (hasSource == false || Check(file.DownloadPath, file.CompressPath) == CompressResult.Ok)

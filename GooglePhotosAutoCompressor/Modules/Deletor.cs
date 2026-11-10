@@ -12,6 +12,14 @@ namespace GooglePhotosAutoCompressor.Modules
             // which skipped originals further down the list (and left duplicates after upload).
             Dictionary<string, FileItem> pending = files.Snapshot().Where(ItemRules.IsReadyForBin).ToDictionary(i => i.MediaKey);
 
+            // Last guard: a motion photo's copy has no video, so its original must never go to the bin.
+            foreach (FileItem motion in pending.Values.Where(i => MotionPhoto.Is(i.DownloadPath) || MotionPhoto.Is(i.CompressPath)).ToArray())
+            {
+                MotionPhoto.LeaveAlone(motion);
+                pending.Remove(motion.MediaKey);
+                files.Save();
+            }
+
             if (pending.Count == 0)
             {
                 return;
