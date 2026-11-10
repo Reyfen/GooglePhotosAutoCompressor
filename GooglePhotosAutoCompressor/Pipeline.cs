@@ -20,6 +20,14 @@ namespace GooglePhotosAutoCompressor
         Finished,
     }
 
+    /// <summary>The browser is signed in to another account than the run's: the run must stop.</summary>
+    internal sealed class AccountChangedException : Exception
+    {
+        public AccountChangedException(string message) : base(message)
+        {
+        }
+    }
+
     internal enum RunResult
     {
         Finished,
@@ -58,6 +66,9 @@ namespace GooglePhotosAutoCompressor
 
         private readonly PipelineHost _host;
         private int _errors;
+        /// <summary>The run's page and account once known: a failing step first checks whether Google wants a person.</summary>
+        private IPage? _page;
+        private string? _account;
 
         public Pipeline(PipelineHost host)
         {
@@ -99,6 +110,7 @@ namespace GooglePhotosAutoCompressor
 
                 Stage(PipelineStage.Preparing, "Opening Chrome");
                 (playwright, IPage page) = await Initlizer.OpenBrowser();
+                _page = page;
 
                 Stage(PipelineStage.SigningIn, "Opening Google Photos");
                 await Step(PipelineStage.SigningIn, "Opening Google Photos",
@@ -114,6 +126,7 @@ namespace GooglePhotosAutoCompressor
                                 "Check that Google Photos opened in the Chrome window and press Start again.");
                 }
 
+                _account = account;
                 string progressPath = Accounts.ProgressPath(account);
                 Accounts.AdoptSharedProgress(FileItemsData.DEFAULT_PATH, progressPath);
                 _host.AccountDetected(account);
@@ -197,6 +210,10 @@ namespace GooglePhotosAutoCompressor
             {
                 return Fail(e.Message);
             }
+            catch (AccountChangedException e)
+            {
+                return Fail(e.Message);
+            }
             catch (Exception e) when (e is PlaywrightException or TimeoutException or InvalidOperationException or IOException
                                           or InvalidDataException or HttpRequestException or UnauthorizedAccessException)
             {
@@ -235,6 +252,19 @@ namespace GooglePhotosAutoCompressor
                     if (IsBrowserClosed(e))
                     {
                         throw new BrowserClosedException();
+                    }
+
+                    // Signed out, "verify it's you" or "unusual traffic": wait for the person, then repeat the step
+                    // (not counted as a failure) — as long as it is still the run's account.
+                    if (_page != null && await Initlizer.WaitForPersonAsync(_page, cancellationToken, waiting => Stage(PipelineStage.SigningIn, waiting)))
+                    {
+                        if (_account != null && await AccountChanged(_page, _account, cancellationToken) is string changed)
+                        {
+                            throw new AccountChangedException(changed);
+                        }
+
+                        attempt--;
+                        continue;
                     }
 
                     if (await Network.IsOnlineAsync(cancellationToken) == false && attempt < MAX_STEP_ATTEMPTS + 5)

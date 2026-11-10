@@ -121,6 +121,75 @@ namespace GooglePhotosAutoCompressor.Modules
             return Accounts.Mismatch(expected, now);
         }
 
+        /// <summary>Where Google sent the browser instead of Google Photos, when a person has to act.</summary>
+        internal enum GoogleWants
+        {
+            /// <summary>Signed out: Google Photos shows its "about" page (seen live 2026-11-10).</summary>
+            SignIn,
+            /// <summary>A Google accounts page: sign-in, "Verify it's you", 2-step challenge.</summary>
+            Confirm,
+            /// <summary>"Our systems have detected unusual traffic" (google.com/sorry).</summary>
+            UnusualTraffic,
+        }
+
+        /// <summary>What Google wants from a person on this page, or null when it is a normal page.</summary>
+        internal static GoogleWants? WhatGoogleWants(string? url)
+        {
+            if (string.IsNullOrEmpty(url))
+            {
+                return null;
+            }
+
+            if (url.StartsWith("https://www.google.com/sorry", StringComparison.OrdinalIgnoreCase))
+            {
+                return GoogleWants.UnusualTraffic;
+            }
+
+            if (url.StartsWith("https://accounts.google.com", StringComparison.OrdinalIgnoreCase))
+            {
+                return GoogleWants.Confirm;
+            }
+
+            if (url.StartsWith("https://www.google.com/photos/about", StringComparison.OrdinalIgnoreCase))
+            {
+                return GoogleWants.SignIn;
+            }
+
+            return null;
+        }
+
+        /// <summary>
+        /// When Google needs a person (signed out, "verify it's you", unusual traffic), waits — as long as it takes,
+        /// until stopped — until Google Photos is back. Returns false at once when the page is a normal one.
+        /// </summary>
+        internal static async Task<bool> WaitForPersonAsync(IPage page, CancellationToken cancellationToken, Action<string> onWaiting)
+        {
+            GoogleWants? wants = WhatGoogleWants(page.Url);
+            if (wants == null)
+            {
+                return false;
+            }
+
+            if (wants == GoogleWants.SignIn)
+            {
+                // Same wait as at the start of a run.
+                await Login(page, cancellationToken, () => onWaiting("Google signed the app out. Sign in again in the Chrome window. The app waits for you."));
+                return true;
+            }
+
+            onWaiting(wants == GoogleWants.UnusualTraffic
+                ? "Google asks to confirm you are not a robot. Do that in the Chrome window. The app waits for you."
+                : "Google asks you to sign in or confirm it's you in the Chrome window. The app waits for you.");
+            Console.WriteLine($"Waiting for a person: {wants} ({page.Url.Split('?')[0]})");
+            while (WhatGoogleWants(page.Url) != null)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                await Task.Delay(2000, cancellationToken);
+            }
+
+            return true;
+        }
+
         /// <summary>True when the app's browser profile exists, i.e. someone may be signed in.</summary>
         internal static bool HasProfile(string profileDir) =>
             Directory.Exists(profileDir) && Directory.EnumerateFileSystemEntries(profileDir).Any();

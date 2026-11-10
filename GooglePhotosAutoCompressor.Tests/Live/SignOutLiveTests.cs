@@ -44,6 +44,26 @@ namespace GooglePhotosAutoCompressor.Tests.Live
         }
 
         [SkippableFact]
+        public async Task A_signed_out_browser_lands_where_the_app_waits_for_a_person()
+        {
+            RequireLive();
+            // A run that gets signed out half way must pause and ask for a sign-in, not fail its steps.
+            using IPlaywright playwright = await Playwright.CreateAsync();
+            IBrowserContext context = await Initlizer.Launch(playwright, _profile, "chrome", headless: true);
+            try
+            {
+                IPage page = context.Pages.FirstOrDefault() ?? await context.NewPageAsync();
+                await page.GotoAsync($"https://photos.google.com/quotamanagement/large?hl={Const.LOCALE}");
+
+                Assert.NotNull(Initlizer.WhatGoogleWants(page.Url));
+            }
+            finally
+            {
+                await context.CloseAsync();
+            }
+        }
+
+        [SkippableFact]
         public async Task Sign_out_reports_signed_out_for_a_profile_without_a_sign_in()
         {
             RequireLive();
