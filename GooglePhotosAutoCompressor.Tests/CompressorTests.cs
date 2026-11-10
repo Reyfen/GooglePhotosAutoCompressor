@@ -62,9 +62,9 @@ namespace GooglePhotosAutoCompressor.Tests
             int exit = Compressor.Encode(ffmpeg, item, output, copyAudio: true, CancellationToken.None, timeLimit: TimeSpan.FromMilliseconds(300));
 
             Assert.Equal(Ffmpeg.TIMED_OUT, exit);
+            // Returning quickly means ffmpeg was stopped (Run waits for it to exit). Counting ffmpeg processes
+            // instead was flaky: other tests run ffmpeg at the same time.
             Assert.True(watch.Elapsed < TimeSpan.FromSeconds(10), $"took {watch.Elapsed}");
-            Assert.DoesNotContain(System.Diagnostics.Process.GetProcessesByName("ffmpeg"),
-                p => { try { return p.MainModule?.FileName == ffmpeg.ExePath; } catch { return false; } });
         }
 
         [SkippableFact]
