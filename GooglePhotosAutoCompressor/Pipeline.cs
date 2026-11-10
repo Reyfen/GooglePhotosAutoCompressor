@@ -193,6 +193,10 @@ namespace GooglePhotosAutoCompressor
             {
                 return Fail("The Chrome window was closed. Start again to carry on.");
             }
+            catch (StorageFullException e)
+            {
+                return Fail(e.Message);
+            }
             catch (Exception e) when (e is PlaywrightException or TimeoutException or InvalidOperationException or IOException
                                           or InvalidDataException or HttpRequestException or UnauthorizedAccessException)
             {
@@ -225,7 +229,8 @@ namespace GooglePhotosAutoCompressor
                     await action();
                     return;
                 }
-                catch (Exception e) when (cancellationToken.IsCancellationRequested == false && e is not OperationCanceledException)
+                catch (Exception e) when (cancellationToken.IsCancellationRequested == false && e is not OperationCanceledException
+                                          && e is not StorageFullException)
                 {
                     if (IsBrowserClosed(e))
                     {

@@ -61,6 +61,19 @@ namespace GooglePhotosAutoCompressor.Tests.Live
             Assert.Null(mismatch);
             await Page.GotoAsync(LivePhotosFixture.HOME_URL);
 
+            // The upload step reads the storage meter ("12.4 GB of 15 GB used") to stop before storage is full.
+            (double used, double total)? meter = null;
+            await Expect("the sidebar to show the storage meter (\"X GB of Y GB used\")", async () =>
+            {
+                for (int i = 0; i < 20 && meter == null; i++)
+                {
+                    meter = StorageCheck.ParseMeter(await Page.EvaluateAsync<string>("() => document.body.innerText"));
+                    if (meter == null) await Task.Delay(500);
+                }
+                if (meter == null) throw new InvalidOperationException("no storage meter text on the page");
+            });
+            _out.WriteLine($"storage: {meter!.Value.used / 1e9:0.#} GB of {meter.Value.total / 1e9:0.#} GB");
+
             await ExpectScreen("home",
                 "Is this the signed-in Google Photos main library (a grid of photos or videos), with the interface in English?");
         }

@@ -23,6 +23,13 @@ namespace GooglePhotosAutoCompressor.Modules
             {
                 FileItem file = toUpload[i];
                 StepProgress.Report(i, toUpload.Length);
+
+                // Storage meter in the sidebar: stop before an upload that can't fit (the run then bins nothing more).
+                if (StorageCheck.WontFit(await PageText(page), new FileInfo(file.CompressPath).Length) is string full)
+                {
+                    throw new StorageFullException(full);
+                }
+
                 DateTime startedAt = DateTime.UtcNow;
                 try
                 {
@@ -43,6 +50,11 @@ namespace GooglePhotosAutoCompressor.Modules
                         finished = false;
                     }
 
+                    if (finished == false && StorageCheck.SaysFull(await PageText(page)))
+                    {
+                        throw new StorageFullException("Google Photos says the storage is full.");
+                    }
+
                     if (finished == false)
                     {
                         // Not marked as uploaded: the next run uploads it again. Google Photos ignores
@@ -59,6 +71,19 @@ namespace GooglePhotosAutoCompressor.Modules
                 {
                     Console.WriteLine($"Uploader: failed for {file.CompressPath}: {e.Message}");
                 }
+            }
+        }
+
+        /// <summary>The visible text of the page (read-only), or "" when it can't be read.</summary>
+        private static async Task<string> PageText(IPage page)
+        {
+            try
+            {
+                return await page.EvaluateAsync<string>("() => document.body ? document.body.innerText : ''");
+            }
+            catch (PlaywrightException)
+            {
+                return "";
             }
         }
 
