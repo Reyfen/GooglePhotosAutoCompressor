@@ -35,6 +35,7 @@ namespace GooglePhotosAutoCompressor.Modules
                     // Already gone (an earlier delete went through but was not recorded, or the user
                     // removed it by hand). Without this the copy would never be uploaded.
                     missing.OriginalDeleted = true;
+                    missing.BinnedAt ??= DateTime.UtcNow; // at the latest now
                     Console.WriteLine($"Deletor: original no longer in the list, treating as binned: {missing.MediaKey} ({missing.Date})");
                 }
                 else
@@ -67,6 +68,7 @@ namespace GooglePhotosAutoCompressor.Modules
                 }
 
                 item.OriginalDeleted = true;
+                item.BinnedAt = DateTime.UtcNow;
                 Console.WriteLine($"Deletor: moved to bin: {item.MediaKey} ({item.Date})");
             }
 

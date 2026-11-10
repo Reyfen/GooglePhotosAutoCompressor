@@ -106,6 +106,28 @@ namespace GooglePhotosAutoCompressor
                    && string.IsNullOrEmpty(item.CompressPath) == false;
         }
 
+        /// <summary>Google Photos deletes items from its bin for good after this many days.</summary>
+        public const int BIN_KEEPS_DAYS = 60;
+        /// <summary>Warn when an original has waited in the bin this long for its copy to be uploaded.</summary>
+        public const int BIN_WARNING_DAYS = 30;
+
+        /// <summary>
+        /// Days the original has been in the bin while its copy is not uploaded yet; null when not waiting or not known
+        /// (binned by a version that did not record the date).
+        /// </summary>
+        public static int? DaysWaitingInBin(FileItem item, DateTime nowUtc)
+        {
+            if (item.OriginalDeleted == false || item.CompressUploaded || item.BinnedAt == null)
+            {
+                return null;
+            }
+
+            return (int)Math.Floor((nowUtc - item.BinnedAt.Value).TotalDays);
+        }
+
+        /// <summary>The original may soon be gone for good while the copy is still not in Google Photos.</summary>
+        public static bool IsAtRiskInBin(FileItem item, DateTime nowUtc) => DaysWaitingInBin(item, nowUtc) >= BIN_WARNING_DAYS;
+
         /// <summary>Finished: copy uploaded and dated (photo copies are dated on upload).</summary>
         public static bool IsDone(FileItem item) => item.DateSet && (item.CompressUploaded || item.OriginalDeleted);
 

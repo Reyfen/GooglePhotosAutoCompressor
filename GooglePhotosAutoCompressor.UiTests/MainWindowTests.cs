@@ -459,6 +459,23 @@ namespace GooglePhotosAutoCompressor.UiTests
         }
 
         [AvaloniaFact]
+        public void Run_page_warns_about_originals_waiting_too_long_in_the_bin()
+        {
+            var data = new FileItemsData(StatePath);
+            data.AddOrGet(new FileItem { MediaKey = "old", Date = new DateOnly(2025, 1, 1), Duration = TimeSpan.FromSeconds(20), Size = 50L << 20,
+                Verified = true, OriginalDeleted = true, BinnedAt = DateTime.UtcNow.AddDays(-41) });
+            data.AddOrGet(new FileItem { MediaKey = "new", Date = new DateOnly(2025, 1, 2), Duration = TimeSpan.FromSeconds(20), Size = 50L << 20,
+                Verified = true, OriginalDeleted = true, BinnedAt = DateTime.UtcNow.AddDays(-2) });
+            data.Save();
+
+            (MainWindow window, MainViewModel vm, _) = Open();
+
+            Assert.StartsWith("1 original(s) have waited up to 41 days", vm.BinWarningText);
+            Assert.Contains(window.GetVisualDescendantsOfType<TextBlock>(), t => t.Text == vm.BinWarningText && t.IsEffectivelyVisible);
+            Screenshot(window, "1f-bin-warning");
+        }
+
+        [AvaloniaFact]
         public void Help_page_renders()
         {
             (MainWindow window, _, _) = Open();

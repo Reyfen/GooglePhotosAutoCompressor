@@ -18,6 +18,8 @@ namespace GooglePhotosAutoCompressor
         /// <summary>Failed attempts; the item is left alone after <see cref="Settings.MaxFails"/>.</summary>
         public int FailCount { get; set; }
         public bool OriginalDeleted { get; set; }
+        /// <summary>When the original went to the Google Photos bin (UTC). Google deletes it from there after 60 days.</summary>
+        public DateTime? BinnedAt { get; set; }
         public bool CompressUploaded { get; set; }
         public bool DateSet { get; set; }
         /// <summary>Size of the checked copy, kept after the local file is gone (for "space saved").</summary>

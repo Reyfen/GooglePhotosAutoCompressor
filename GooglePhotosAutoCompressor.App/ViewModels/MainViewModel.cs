@@ -143,6 +143,9 @@ public partial class MainViewModel : ObservableObject
     [ObservableProperty] private bool _showCurrentItem;
 
     [ObservableProperty] private string _savedSpaceText = "0 MB";
+
+    /// <summary>Shown on the Run page when originals have waited 30+ days in the bin (empty otherwise).</summary>
+    [ObservableProperty] private string _binWarningText = "";
     [ObservableProperty] private int _doneCount;
     [ObservableProperty] private int _inProgressCount;
     [ObservableProperty] private int _waitingCount;
@@ -461,6 +464,14 @@ public partial class MainViewModel : ObservableObject
         long saved = all.Where(i => i.CompressUploaded && i.CompressedSize > 0 && i.Size > i.CompressedSize)
                         .Sum(i => i.Size - i.CompressedSize);
         SavedSpaceText = Format.Bytes(saved);
+
+        // Originals waiting in the Google bin for their copy: Google deletes them after 60 days.
+        DateTime now = DateTime.UtcNow;
+        int[] waitingDays = all.Where(i => ItemRules.IsAtRiskInBin(i, now)).Select(i => ItemRules.DaysWaitingInBin(i, now)!.Value).ToArray();
+        BinWarningText = waitingDays.Length == 0 ? "" :
+            $"{waitingDays.Length} original(s) have waited up to {waitingDays.Max()} days in the Google Photos bin for their copy to be uploaded. " +
+            $"Google deletes them for good after {ItemRules.BIN_KEEPS_DAYS} days: press Start to upload the copies, or restore the originals from the bin.";
+
         ItemsSummary = $"{all.Length} items found in \"Large photos and videos\"";
 
         IEnumerable<ItemRow> shown = FilterIndex switch

@@ -121,6 +121,28 @@ namespace GooglePhotosAutoCompressor.Tests
         }
 
         [Fact]
+        public void Originals_waiting_long_in_the_bin_are_flagged_before_google_deletes_them()
+        {
+            DateTime now = new(2026, 11, 10, 12, 0, 0, DateTimeKind.Utc);
+            FileItem item = Video();
+            item.OriginalDeleted = true;
+
+            item.BinnedAt = now.AddDays(-29);
+            Assert.Equal(29, ItemRules.DaysWaitingInBin(item, now));
+            Assert.False(ItemRules.IsAtRiskInBin(item, now));
+
+            item.BinnedAt = now.AddDays(-31);
+            Assert.True(ItemRules.IsAtRiskInBin(item, now));
+
+            item.CompressUploaded = true;                 // copy is in Google Photos: nothing at risk
+            Assert.False(ItemRules.IsAtRiskInBin(item, now));
+
+            FileItem old = Video();
+            old.OriginalDeleted = true;                   // binned by a version that did not record when
+            Assert.Null(ItemRules.DaysWaitingInBin(old, now));
+        }
+
+        [Fact]
         public void Time_is_never_read_without_a_good_copy()
         {
             FileItem item = Video();

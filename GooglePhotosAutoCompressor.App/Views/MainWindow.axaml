@@ -123,6 +123,10 @@
                   <TextBlock Grid.Row="1" Grid.Column="10" Classes="stepName" Text="{Binding Steps[5].Name}" Classes.muted="{Binding Steps[5].IsPending}" />
                 </Grid>
 
+                <!-- Originals near Google's 60-day bin limit while their copy is not uploaded (ItemRules.IsAtRiskInBin). -->
+                <TextBlock Text="{Binding BinWarningText}" TextWrapping="Wrap" FontWeight="SemiBold" Foreground="{DynamicResource WarnAmber}"
+                           IsVisible="{Binding BinWarningText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+
                 <!-- Can be changed during a run: read when the current batch ends. -->
                 <CheckBox Content="When this batch is done, carry on with the next one" IsChecked="{Binding Settings.RepeatUntilDone}"
                           ToolTip.Tip="Also on the Settings page. During a run it is used when the current batch ends." />
