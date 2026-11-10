@@ -8,9 +8,21 @@ using GooglePhotosAutoCompressor.Modules;
 namespace GooglePhotosAutoCompressor.App.ViewModels;
 
 /// <summary>What the window needs from the outside world (dialogs, folders, clipboard).</summary>
+/// <summary>Answer of a dialog with an extra red button.</summary>
+public enum DialogChoice
+{
+    Cancel,
+    Yes,
+    /// <summary>The red button on the left (a stronger, destructive action).</summary>
+    Danger,
+}
+
 public interface IDialogs
 {
     Task<bool> AskYesNo(string title, string message, string yes = "Yes", string no = "No");
+
+    /// <summary>Like <see cref="AskYesNo"/>, plus a red button on the left for a destructive alternative.</summary>
+    Task<DialogChoice> AskWithDanger(string title, string message, string yes, string no, string danger);
 
     /// <summary>Returns (move to bin?, stop asking?).</summary>
     Task<(bool ok, bool dontAskAgain)> ConfirmBin(string summary, IReadOnlyList<ItemRow> items);
@@ -539,17 +551,24 @@ public partial class MainViewModel : ObservableObject
     /// <summary>
     /// Signs the app's browser out of Google after asking, like Google's own "Sign out": the accounts stay listed,
     /// so signing back in is choosing one and typing its password. Progress, settings and files stay.
+    /// The dialog's red "Delete all login data" asks once more, then deletes the app's browser profile instead.
     /// </summary>
     [RelayCommand(CanExecute = nameof(CanSignOut))]
     private async Task SignOut()
     {
-        bool ok = await _dialogs.AskYesNo("Sign out of Google?",
+        DialogChoice choice = await _dialogs.AskWithDanger("Sign out of Google?",
             "Signs the app's browser out of Google, like Google's own \"Sign out\". Your accounts stay in its list, so the next " +
             "Start shows them and you sign back in by choosing one and typing its password. " +
             "Your normal Chrome is not affected. Progress, settings and the files on this PC stay." + Environment.NewLine + Environment.NewLine +
             "If you then sign in with a different account, items already in progress belong to the old one: finish them first.",
-            "Sign out", "Cancel");
-        if (ok == false)
+            "Sign out", "Cancel", "Delete all login data");
+        if (choice == DialogChoice.Danger)
+        {
+            await DeleteLoginData();
+            return;
+        }
+
+        if (choice != DialogChoice.Yes)
         {
             return;
         }
@@ -571,6 +590,31 @@ public partial class MainViewModel : ObservableObject
         finally
         {
             IsSigningOut = false;
+        }
+    }
+
+    private async Task DeleteLoginData()
+    {
+        bool sure = await _dialogs.AskYesNo("Delete all login data?",
+            "Permanently deletes the app's browser profile: every Google account in its list, cookies and history. " +
+            "This cannot be undone. The next Start asks you to sign in from scratch (email, password, 2-step verification)." +
+            Environment.NewLine + Environment.NewLine +
+            "Your normal Chrome is not affected. Progress, settings and the files on this PC stay.",
+            "Delete permanently", "Cancel");
+        if (sure == false)
+        {
+            return;
+        }
+
+        string? error = Initlizer.DeleteLoginData(_profileDir);
+        IsSignedIn = Initlizer.HasProfile(_profileDir);
+        if (error == null)
+        {
+            SetStatus("All login data deleted. Press Start to sign in again.");
+        }
+        else
+        {
+            SetStatus(error, error: true);
         }
     }
 

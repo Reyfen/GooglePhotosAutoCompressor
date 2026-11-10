@@ -32,6 +32,17 @@ namespace GooglePhotosAutoCompressor.UiTests
             return Task.FromResult(Answer);
         }
 
+        /// <summary>Answer of the next three-way dialog; null: Yes or Cancel as <see cref="Answer"/> says.</summary>
+        public DialogChoice? Choice { get; set; }
+
+        public Task<DialogChoice> AskWithDanger(string title, string message, string yes, string no, string danger)
+        {
+            Asked.Add(title);
+            DialogChoice choice = Choice ?? (Answer ? DialogChoice.Yes : DialogChoice.Cancel);
+            Choice = null;
+            return Task.FromResult(choice);
+        }
+
         public Task<(bool ok, bool dontAskAgain)> ConfirmBin(string summary, IReadOnlyList<ItemRow> items) => Task.FromResult((Answer, false));
         public Task<string?> PickFolder() => Task.FromResult<string?>(null);
         public Task CopyText(string text) => Task.CompletedTask;
@@ -376,6 +387,47 @@ namespace GooglePhotosAutoCompressor.UiTests
             Assert.True(Directory.Exists(ProfileDir));    // the profile and its account list stay
             Assert.True(File.Exists(StatePath));
             Assert.StartsWith("Signed out", vm.StatusText);
+        }
+
+        [AvaloniaFact]
+        public async Task Delete_all_login_data_asks_twice_and_deletes_the_apps_browser_profile()
+        {
+            Directory.CreateDirectory(Path.Combine(ProfileDir, "Default"));
+            File.WriteAllText(Path.Combine(ProfileDir, "Default", "Cookies"), "x");
+            new FileItemsData(StatePath).Save();
+            (_, MainViewModel vm, FakeDialogs dialogs) = Open(signOut: _ => throw new InvalidOperationException("must not sign out"));
+
+            // Red button, then "Cancel" in the second question: nothing happens.
+            dialogs.Choice = DialogChoice.Danger;
+            dialogs.Answer = false;
+            await vm.SignOutCommand.ExecuteAsync(null);
+            Assert.Contains("Delete all login data?", dialogs.Asked);
+            Assert.True(Directory.Exists(ProfileDir));
+
+            // Red button, then "Delete permanently".
+            dialogs.Choice = DialogChoice.Danger;
+            dialogs.Answer = true;
+            await vm.SignOutCommand.ExecuteAsync(null);
+            Assert.False(Directory.Exists(ProfileDir));
+            Assert.True(File.Exists(StatePath)); // progress stays
+            Assert.False(vm.IsSignedIn);
+            Assert.StartsWith("All login data deleted", vm.StatusText);
+        }
+
+        [AvaloniaFact]
+        public void Sign_out_dialog_shows_a_red_delete_button_on_the_left()
+        {
+            var dialog = new DialogWindow("Sign out of Google?", "Signs the app's browser out of Google.", "Sign out", "Cancel",
+                items: null, dontAskText: null, danger: "Delete all login data");
+            dialog.Show();
+            Dispatcher.UIThread.RunJobs();
+            Screenshot(dialog, "5b-sign-out-dialog");
+
+            Button red = dialog.GetVisualDescendantsOfType<Button>().Single(b => b.Content as string == "Delete all login data");
+            Button signOut = dialog.GetVisualDescendantsOfType<Button>().Single(b => b.Content as string == "Sign out");
+            Assert.Contains("danger", red.Classes);
+            Assert.True(red.TranslatePoint(new Point(0, 0), dialog)!.Value.X < signOut.TranslatePoint(new Point(0, 0), dialog)!.Value.X);
+            Assert.Equal(DialogChoice.Cancel, dialog.Choice); // closing without a click is Cancel
         }
 
         [AvaloniaFact]

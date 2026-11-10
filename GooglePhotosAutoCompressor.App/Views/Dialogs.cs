@@ -25,6 +25,13 @@ public sealed class WindowDialogs : IDialogs
         return dialog.Ok;
     }
 
+    public async Task<DialogChoice> AskWithDanger(string title, string message, string yes, string no, string danger)
+    {
+        var dialog = new DialogWindow(title, message, yes, no, items: null, dontAskText: null, danger: danger);
+        await dialog.ShowDialog(_owner);
+        return dialog.Choice;
+    }
+
     public async Task<(bool ok, bool dontAskAgain)> ConfirmBin(string summary, IReadOnlyList<ItemRow> items)
     {
         _owner.Activate();
@@ -71,12 +78,16 @@ public sealed class WindowDialogs : IDialogs
     }
 }
 
-/// <summary>A small modal window: message, optional item list and "don't ask again", two buttons.</summary>
+/// <summary>
+/// A small modal window: message, optional item list and "don't ask again", two buttons on the right and an
+/// optional red one on the left for a destructive alternative.
+/// </summary>
 internal sealed class DialogWindow : Window
 {
     private readonly CheckBox? _dontAsk;
 
-    public DialogWindow(string title, string message, string yes, string? no, IReadOnlyList<ItemRow>? items, string? dontAskText)
+    public DialogWindow(string title, string message, string yes, string? no, IReadOnlyList<ItemRow>? items, string? dontAskText,
+        string? danger = null)
     {
         Title = title;
         Width = items == null ? 460 : 620;
@@ -121,7 +132,7 @@ internal sealed class DialogWindow : Window
         yesButton.Classes.Add("primary");
         yesButton.Click += (_, _) =>
         {
-            Ok = true;
+            Choice = DialogChoice.Yes;
             Close();
         };
 
@@ -133,11 +144,33 @@ internal sealed class DialogWindow : Window
         }
 
         buttons.Children.Add(yesButton);
-        panel.Children.Add(buttons);
+
+        if (danger != null)
+        {
+            var row = new DockPanel();
+            var dangerButton = new Button { Content = danger, HorizontalAlignment = HorizontalAlignment.Left };
+            dangerButton.Classes.Add("danger");
+            dangerButton.Click += (_, _) =>
+            {
+                Choice = DialogChoice.Danger;
+                Close();
+            };
+            DockPanel.SetDock(dangerButton, Dock.Left);
+            row.Children.Add(dangerButton);
+            row.Children.Add(buttons);
+            panel.Children.Add(row);
+        }
+        else
+        {
+            panel.Children.Add(buttons);
+        }
+
         Content = panel;
     }
 
-    public bool Ok { get; private set; }
+    public DialogChoice Choice { get; private set; } = DialogChoice.Cancel;
+
+    public bool Ok => Choice == DialogChoice.Yes;
 
     public bool DontAskAgain => _dontAsk?.IsChecked == true;
 }

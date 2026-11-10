@@ -124,6 +124,31 @@ namespace GooglePhotosAutoCompressor.Modules
             }
         }
 
+        /// <summary>
+        /// "Delete all login data": deletes the app's own browser profile, so every account in its list, cookies and
+        /// history are gone for good. The user's normal Chrome is a different profile and is not touched; progress
+        /// and files are not either. Chrome must not be running with this profile. Returns null when done, else why not.
+        /// </summary>
+        internal static string? DeleteLoginData(string profileDir)
+        {
+            if (Directory.Exists(profileDir) == false)
+            {
+                return null;
+            }
+
+            try
+            {
+                Directory.Delete(profileDir, recursive: true);
+                Console.WriteLine($"Deleted all login data: the browser profile {profileDir}");
+                return null;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                // Usually a Chrome window of this profile is still open.
+                return $"Could not delete {profileDir}: {e.Message} Close any Chrome window the app opened and try again.";
+            }
+        }
+
         private static void EnsureChromiumInstalled()
         {
             int exitCode = Microsoft.Playwright.Program.Main(new[] { "install", "chromium" });
