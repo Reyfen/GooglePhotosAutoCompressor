@@ -65,7 +65,7 @@ namespace GooglePhotosAutoCompressor
         [JsonConverter(typeof(StringEnumConverter))]
         public VideoResolution VideoResolution { get; set; } = VideoResolution.Half;
         [JsonConverter(typeof(StringEnumConverter))]
-        public MotionPhotoMode MotionPhotos { get; set; } = MotionPhotoMode.LeaveAlone;
+        public MotionPhotoMode MotionPhotos { get; set; } = MotionPhotoMode.KeepMotion;
         /// <summary>x264 CRF: lower is better quality and bigger. 18–28 is the useful range.</summary>
         public int VideoCrf { get; set; } = 20;
         /// <summary>16 MP is the size Google's own "Storage saver" quality keeps.</summary>

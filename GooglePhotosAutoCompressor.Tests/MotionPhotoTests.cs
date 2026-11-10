@@ -92,6 +92,14 @@ namespace GooglePhotosAutoCompressor.Tests
         };
 
         [Fact]
+        public void Keeping_the_motion_is_the_default()
+        {
+            // Checked live 2026-11-11: uploaded copies play as motion photos in Google Photos.
+            Assert.Equal(MotionPhotoMode.KeepMotion, new Settings().MotionPhotos);
+            Assert.Equal(MotionPhotoMode.KeepMotion, Newtonsoft.Json.JsonConvert.DeserializeObject<Settings>("{}")!.MotionPhotos);
+        }
+
+        [Fact]
         public void Tail_is_read_from_the_xmp_and_checked_against_the_file()
         {
             Assert.Equal(VIDEO, MotionPhoto.TailLength(MakeMotionPhoto()));

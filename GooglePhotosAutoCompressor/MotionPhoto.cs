@@ -8,8 +8,9 @@ namespace GooglePhotosAutoCompressor
     /// also put an HDR gain map (a second JPEG) between them. The XMP "Container:Directory" lists those parts with
     /// their lengths, counted from the end of the file. Re-encoding the picture drops everything after it, so the
     /// copy was a still photo (found 2026-11-10: 187 copies had lost their video). <see cref="Settings.MotionPhotos"/>
-    /// decides: leave them alone (default), keep the motion (the original parts after the picture are put back
-    /// unchanged, so their lengths in the XMP still fit), or make a still photo.
+    /// decides: keep the motion (default since 2026-11-11, checked live: copies play as motion photos; the original
+    /// parts after the picture are put back unchanged, so their lengths in the XMP still fit), leave them alone, or
+    /// make a still photo.
     /// </summary>
     internal static class MotionPhoto
     {

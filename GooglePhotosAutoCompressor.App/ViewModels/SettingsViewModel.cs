@@ -75,7 +75,7 @@ public partial class SettingsViewModel : ObservableObject
     public string[] MotionPhotosOptions { get; } =
     {
         "Leave them alone",
-        "Compress the photo, keep the motion",
+        "Compress the photo, keep the motion (recommended)",
         "Compress to a still photo (the motion is lost)",
     };
 
