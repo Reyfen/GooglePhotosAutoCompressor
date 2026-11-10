@@ -51,6 +51,12 @@ namespace GooglePhotosAutoCompressor
                 return Fail(file);
             }
 
+            if (DownloadCheck.SizeProblem(file, new FileInfo(file.DownloadPath!).Length) is string broken)
+            {
+                DownloadCheck.Discard(file, broken);
+                return CompressResult.Failed;
+            }
+
             Directory.CreateDirectory(compressDir);
             string path = FilePaths.CompressPath(compressDir, file.MediaKey, file.DownloadPath);
             string partPath = Path.ChangeExtension(path, ".part" + Path.GetExtension(path));
@@ -68,6 +74,13 @@ namespace GooglePhotosAutoCompressor
             {
                 Console.WriteLine($"PhotoCompressor: {file.DownloadPath}: {e.Message}");
                 result = CompressResult.Failed;
+                if (CanRead(file.DownloadPath!) == false)
+                {
+                    // The download itself is broken: get it again next run instead of failing on it every time.
+                    File.Delete(partPath);
+                    DownloadCheck.Discard(file, "the photo cannot be opened");
+                    return CompressResult.Failed;
+                }
             }
 
             if (result != CompressResult.Ok)
@@ -231,6 +244,20 @@ namespace GooglePhotosAutoCompressor
             finally
             {
                 File.Delete(partPath);
+            }
+        }
+
+        /// <summary>The whole image can be decoded (a cut-off JPEG fails here).</summary>
+        internal static bool CanRead(string path)
+        {
+            try
+            {
+                using MagickImage image = new(path);
+                return image.Width > 0 && image.Height > 0;
+            }
+            catch (Exception e) when (e is MagickException or IOException)
+            {
+                return false;
             }
         }
 

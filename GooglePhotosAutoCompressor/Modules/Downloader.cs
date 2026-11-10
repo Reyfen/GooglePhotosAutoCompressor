@@ -150,6 +150,14 @@ namespace GooglePhotosAutoCompressor.Modules
                         cancellationToken.ThrowIfCancellationRequested();
                         File.Move(partPath, path, true);
                         item.DownloadPath = path;
+                        if (DownloadCheck.SizeProblem(item, new FileInfo(path).Length) is string problem)
+                        {
+                            // Cut off or wrong file: never compress it. The next run downloads it again.
+                            DownloadCheck.Discard(item, problem);
+                            itemsData.Save();
+                            return;
+                        }
+
                         itemsData.Save();
                         Console.WriteLine($"ready: {path}");
                     }

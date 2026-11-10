@@ -214,6 +214,23 @@ namespace GooglePhotosAutoCompressor.Tests
             Assert.Equal(CompressResult.Failed, PhotoCompressor.CompressOne(item, OutDir));
             Assert.Equal(1, item.FailCount);
             Assert.False(Directory.Exists(OutDir) && Directory.GetFiles(OutDir).Length > 0);
+            Assert.False(File.Exists(path)); // broken download: deleted, downloaded again next run
+        }
+
+        [Fact]
+        public void Cut_off_photo_download_is_deleted_and_never_compressed()
+        {
+            string path = MakeJpeg("cut.jpg");
+            FileItem item = ItemFor(path); // listed with the full size
+            byte[] bytes = File.ReadAllBytes(path);
+            File.WriteAllBytes(path, bytes[..(bytes.Length / 2)]);
+
+            Assert.Equal(CompressResult.Failed, PhotoCompressor.CompressOne(item, OutDir));
+
+            Assert.False(File.Exists(path));
+            Assert.Null(item.DownloadPath);
+            Assert.False(item.Verified);
+            Assert.True(ItemRules.NeedsDownload(item));
         }
 
         [Fact]

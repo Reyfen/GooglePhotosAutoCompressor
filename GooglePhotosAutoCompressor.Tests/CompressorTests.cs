@@ -45,6 +45,38 @@ namespace GooglePhotosAutoCompressor.Tests
         private string CompressDir => Path.Combine(_dir, "out");
 
         [SkippableFact]
+        public void Download_shorter_than_listed_is_deleted_not_compressed()
+        {
+            // Readable but cut short: the copy would "match" it and the full original would go to the bin.
+            Ffmpeg ffmpeg = RequireFfmpeg();
+            string path = MakeClip("short.mp4", seconds: 3);
+            FileItem item = ItemFor(path, seconds: 6); // Google lists 6 s
+
+            Assert.Equal(CompressResult.Failed, Compressor.CompressOne(ffmpeg, item, CompressDir));
+
+            Assert.False(File.Exists(path));
+            Assert.False(item.Verified);
+            Assert.Equal(1, item.FailCount);
+            Assert.True(ItemRules.NeedsDownload(item));
+        }
+
+        [SkippableFact]
+        public void Cut_off_download_that_cannot_be_read_is_deleted()
+        {
+            Ffmpeg ffmpeg = RequireFfmpeg();
+            string path = MakeClip("cut.mp4", seconds: 3);
+            FileItem item = ItemFor(path); // listed with the full size
+            byte[] bytes = File.ReadAllBytes(path);
+            File.WriteAllBytes(path, bytes[..(bytes.Length * 6 / 10)]); // download stopped at 60 %
+
+            Assert.Equal(CompressResult.Failed, Compressor.CompressOne(ffmpeg, item, CompressDir));
+
+            Assert.False(File.Exists(path));
+            Assert.Null(item.DownloadPath);
+            Assert.False(Directory.Exists(CompressDir) && Directory.EnumerateFiles(CompressDir).Any());
+        }
+
+        [SkippableFact]
         public void Compresses_and_verifies_clip()
         {
             Ffmpeg ffmpeg = RequireFfmpeg();

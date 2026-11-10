@@ -148,6 +148,15 @@ namespace GooglePhotosAutoCompressor.Modules
                 return CompressResult.NotWorthIt;
             }
 
+            // The copy is only checked against the download, so the download itself must be the whole original.
+            string? broken = DownloadCheck.SizeProblem(file, new FileInfo(file.DownloadPath!).Length)
+                             ?? DownloadCheck.DurationProblem(file, ffmpeg.GetDuration(file.DownloadPath!));
+            if (broken != null)
+            {
+                DownloadCheck.Discard(file, broken);
+                return CompressResult.Failed;
+            }
+
             Directory.CreateDirectory(compressDir);
             string path = FilePaths.CompressPath(compressDir, file.MediaKey, file.DownloadPath);
             string partPath = Path.ChangeExtension(path, ".part" + Path.GetExtension(path));
