@@ -45,6 +45,21 @@ namespace GooglePhotosAutoCompressor
         /// <summary>Google's sign-out page: signs out every account of the browser but keeps them listed for signing back in.</summary>
         public const string SIGN_OUT_URL = "https://accounts.google.com/Logout?hl=" + Const.LOCALE;
 
+        /// <summary>The same address with hl set to <see cref="Const.LOCALE"/> (replacing any other hl).</summary>
+        public static string WithLocale(string url)
+        {
+            int hash = url.IndexOf('#');
+            string fragment = hash >= 0 ? url[hash..] : "";
+            string rest = hash >= 0 ? url[..hash] : url;
+            int q = rest.IndexOf('?');
+            string path = q >= 0 ? rest[..q] : rest;
+            IEnumerable<string> query = (q >= 0 ? rest[(q + 1)..] : "")
+                .Split('&', StringSplitOptions.RemoveEmptyEntries)
+                .Where(p => p.StartsWith("hl=", StringComparison.OrdinalIgnoreCase) == false)
+                .Append("hl=" + Const.LOCALE);
+            return path + "?" + string.Join("&", query) + fragment;
+        }
+
         public static string ViewerUrl(string mediaKey) => $"https://photos.google.com/photo/{mediaKey}?hl={Const.LOCALE}";
 
         public static string TileByMediaKey(string mediaKey) => $"[data-media-key='{mediaKey}']";

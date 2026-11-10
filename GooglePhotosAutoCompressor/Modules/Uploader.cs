@@ -17,7 +17,7 @@ namespace GooglePhotosAutoCompressor.Modules
                 return;
             }
 
-            await page.GotoAsync($"https://photos.google.com/?hl={Const.LOCALE}");
+            await Initlizer.GotoEnglishAsync(page, $"https://photos.google.com/?hl={Const.LOCALE}");
 
             for (int i = 0; i < toUpload.Length && cancellationToken.IsCancellationRequested == false; i++)
             {

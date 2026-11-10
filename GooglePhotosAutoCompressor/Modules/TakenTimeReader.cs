@@ -62,7 +62,7 @@ namespace GooglePhotosAutoCompressor.Modules
 
         internal static async Task<(DateTime? takenAt, int? offsetMs)> ReadOne(IPage page, string mediaKey)
         {
-            await page.GotoAsync(Selectors.ViewerUrl(mediaKey));
+            await Initlizer.GotoEnglishAsync(page, Selectors.ViewerUrl(mediaKey));
             if (DateSetter.ParseMediaKeyFromUrl(page.Url) != mediaKey)
             {
                 throw new InvalidOperationException("the item did not open in the viewer");

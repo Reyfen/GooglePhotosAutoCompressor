@@ -386,7 +386,9 @@ namespace GooglePhotosAutoCompressor.Tests.Live
         private async Task<(string fileName, string dateLabel)> OpenFirstItemInViewer()
         {
             // The date step starts from "Recently added" (newest uploads first), not the library.
-            await Page.GotoAsync(Selectors.RECENTLY_ADDED_URL);
+            // Same call as the step: that page forwards to an address without hl (shown in the account's language).
+            await Initlizer.GotoEnglishAsync(Page, Selectors.RECENTLY_ADDED_URL);
+            Assert.True(Initlizer.IsAppLanguage(await Page.EvaluateAsync<string>("() => document.documentElement.lang")), $"Recently added is not in {Const.LOCALE}: {Page.Url}");
             await Expect($"clicking the first item of Recently added ({Selectors.RECENTLY_ADDED_URL}, {Selectors.LIBRARY_FIRST_ITEM}) to open the viewer", async () =>
             {
                 await Page.Locator(Selectors.LIBRARY_FIRST_ITEM).First.ClickAsync();

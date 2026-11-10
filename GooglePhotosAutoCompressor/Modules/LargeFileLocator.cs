@@ -14,7 +14,7 @@ namespace GooglePhotosAutoCompressor.Modules
         /// </summary>
         public static async Task<bool> EnumearteFiles(IPage page, ProccesFileItemInLargeFilesList process, CancellationToken cancellationToken)
         {
-            await page.GotoAsync($"https://photos.google.com/quotamanagement/large?hl={Const.LOCALE}");
+            await Initlizer.GotoEnglishAsync(page, $"https://photos.google.com/quotamanagement/large?hl={Const.LOCALE}");
 
             ILocator scrollView = page.Locator(Selectors.LARGE_FILES_SCROLL_CHILD).Locator("..");
             HashSet<string> seenKeys = new();

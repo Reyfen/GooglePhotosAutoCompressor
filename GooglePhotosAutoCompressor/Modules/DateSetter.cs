@@ -24,7 +24,7 @@ namespace GooglePhotosAutoCompressor.Modules
 
             // "Recently added" lists items by upload time, newest first. The library itself sorts by date taken,
             // and copies that keep their creation time land at their original date there (seen live 2026-10-29).
-            await page.GotoAsync(Selectors.RECENTLY_ADDED_URL);
+            await Initlizer.GotoEnglishAsync(page, Selectors.RECENTLY_ADDED_URL);
             await page.Locator(Selectors.LIBRARY_FIRST_ITEM).First.ClickAsync();
 
             ILocator fileNamePanels = page.Locator(Selectors.FILE_NAME_PANEL);

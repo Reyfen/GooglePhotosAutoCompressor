@@ -116,10 +116,43 @@ namespace GooglePhotosAutoCompressor.Modules
         /// </summary>
         internal static async Task<string?> CheckAccountAsync(IPage page, string expected)
         {
-            await page.GotoAsync($"https://photos.google.com/?hl={Const.LOCALE}");
+            await GotoEnglishAsync(page, $"https://photos.google.com/?hl={Const.LOCALE}");
             string? now = await ReadAccountAsync(page);
             return Accounts.Mismatch(expected, now);
         }
+
+        /// <summary>
+        /// Opens a Google Photos page in English (<see cref="Const.LOCALE"/>): selectors use English labels. The hl in
+        /// the address is not enough: some pages forward to another address without it ("Recently added" does) and then
+        /// show in the account's own language (seen 2026-11-10 with a Ukrainian account: the date step found no
+        /// "Open info" button). Such a page is opened once more with hl added.
+        /// </summary>
+        internal static async Task GotoEnglishAsync(IPage page, string url)
+        {
+            await page.GotoAsync(url);
+            await KeepEnglishAsync(page);
+        }
+
+        /// <summary>Reloads the current Google Photos page with hl added when it is shown in another language.</summary>
+        internal static async Task KeepEnglishAsync(IPage page)
+        {
+            if (IsInGooglePhotos(page.Url) == false)
+            {
+                return;
+            }
+
+            string lang = await page.EvaluateAsync<string>("() => document.documentElement.lang || ''");
+            if (IsAppLanguage(lang))
+            {
+                return;
+            }
+
+            Console.WriteLine($"Google Photos opened in '{lang}'; opening it again in {Const.LOCALE}.");
+            await page.GotoAsync(Selectors.WithLocale(page.Url));
+        }
+
+        /// <summary>True when the page language (html lang) is the app's; an unknown (empty) one is not trusted.</summary>
+        internal static bool IsAppLanguage(string? lang) => string.Equals(lang, Const.LOCALE, StringComparison.OrdinalIgnoreCase);
 
         /// <summary>Where Google sent the browser instead of Google Photos, when a person has to act.</summary>
         internal enum GoogleWants
@@ -292,6 +325,7 @@ namespace GooglePhotosAutoCompressor.Modules
 
             if (IsInGooglePhotos(page.Url))
             {
+                await KeepEnglishAsync(page);
                 return;
             }
 
@@ -307,6 +341,8 @@ namespace GooglePhotosAutoCompressor.Modules
                 // itself, so the wait ended before anyone signed in (seen 2026-11-10 after Sign out).
                 if (IsInGooglePhotos(page.Url))
                 {
+                    // After a sign-in Google lands on its own address, in the account's language.
+                    await KeepEnglishAsync(page);
                     return;
                 }
 
