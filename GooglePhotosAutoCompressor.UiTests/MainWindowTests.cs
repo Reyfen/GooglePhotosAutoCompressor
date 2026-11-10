@@ -62,6 +62,8 @@ namespace GooglePhotosAutoCompressor.UiTests
 
         private string SettingsPath => Path.Combine(_dir, "settings.json");
         private string StatePath => Path.Combine(_dir, "state.json");
+        /// <summary>Never the real profile: Sign out deletes it.</summary>
+        private string ProfileDir => Path.Combine(_dir, "chrome-profile");
 
         private void SeedState()
         {
@@ -86,7 +88,7 @@ namespace GooglePhotosAutoCompressor.UiTests
 
             var dialogs = new FakeDialogs();
             var log = new TeeTextWriter(null, null);
-            var vm = new MainViewModel(dialogs, log, SettingsPath, StatePath);
+            var vm = new MainViewModel(dialogs, log, SettingsPath, StatePath, ProfileDir);
             var window = new MainWindow { DataContext = vm, Width = 1040, Height = 760 };
             _windows.Add(window);
             window.Show();
@@ -336,6 +338,37 @@ namespace GooglePhotosAutoCompressor.UiTests
             vm.IsRunning = true;
             Assert.False(vm.CleanWorkFolderCommand.CanExecute(null)); // never while a run uses the files
             vm.IsRunning = false;
+        }
+
+        [AvaloniaFact]
+        public async Task Sign_out_asks_first_and_deletes_only_the_apps_browser_profile()
+        {
+            Directory.CreateDirectory(Path.Combine(ProfileDir, "Default"));
+            File.WriteAllText(Path.Combine(ProfileDir, "Default", "Cookies"), "x");
+            new FileItemsData(StatePath).Save();
+
+            (MainWindow window, MainViewModel vm, FakeDialogs dialogs) = Open();
+            Button signOut = window.GetVisualDescendantsOfType<Button>().Single(b => b.Content as string == "Sign out");
+            Assert.True(signOut.IsEffectivelyVisible);
+            Screenshot(window, "1e-header-sign-out");
+
+            dialogs.Answer = false;
+            await vm.SignOutCommand.ExecuteAsync(null);
+            Assert.Contains("Sign out of Google?", dialogs.Asked);
+            Assert.True(Directory.Exists(ProfileDir)); // cancelled
+
+            vm.IsRunning = true;
+            Assert.False(vm.SignOutCommand.CanExecute(null)); // Chrome uses the profile during a run
+            vm.IsRunning = false;
+
+            dialogs.Answer = true;
+            await vm.SignOutCommand.ExecuteAsync(null);
+            Assert.False(Directory.Exists(ProfileDir));
+            Assert.True(File.Exists(StatePath)); // progress stays
+            Assert.False(vm.IsSignedIn);
+            Assert.StartsWith("Signed out", vm.StatusText);
+            Dispatcher.UIThread.RunJobs();
+            Assert.False(signOut.IsEffectivelyVisible); // nobody to sign out any more
         }
 
         [AvaloniaFact]

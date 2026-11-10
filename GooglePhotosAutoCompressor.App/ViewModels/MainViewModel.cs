@@ -39,10 +39,13 @@ public partial class MainViewModel : ObservableObject
 
     /// <param name="settingsPath">Settings file (tests pass a temp file).</param>
     /// <param name="statePath">Progress file shown while idle (tests pass a temp file).</param>
-    internal MainViewModel(IDialogs dialogs, TeeTextWriter log, string? settingsPath = null, string? statePath = null)
+    /// <param name="profileDir">The app's browser profile, deleted by Sign out (tests pass a temp folder).</param>
+    internal MainViewModel(IDialogs dialogs, TeeTextWriter log, string? settingsPath = null, string? statePath = null, string? profileDir = null)
     {
         _dialogs = dialogs;
         _statePath = statePath ?? FileItemsData.DEFAULT_PATH;
+        _profileDir = profileDir ?? Initlizer.GetProfileDir();
+        IsSignedIn = Initlizer.HasProfile(_profileDir);
         Settings = new SettingsViewModel(settingsPath ?? Settings_DEFAULT_PATH, dialogs.PickFolder);
 
         Steps = new ObservableCollection<StepViewModel>(new[]
@@ -101,7 +104,7 @@ public partial class MainViewModel : ObservableObject
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsIdle), nameof(StartStopText))]
-    [NotifyCanExecuteChangedFor(nameof(RetryFailedCommand), nameof(FreeDiskSpaceCommand), nameof(CheckSetupCommand), nameof(CleanWorkFolderCommand))]
+    [NotifyCanExecuteChangedFor(nameof(RetryFailedCommand), nameof(FreeDiskSpaceCommand), nameof(CheckSetupCommand), nameof(CleanWorkFolderCommand), nameof(SignOutCommand))]
     private bool _isRunning;
 
     [ObservableProperty]
@@ -222,6 +225,7 @@ public partial class MainViewModel : ObservableObject
 
     private void OnFinished(RunResult result, string? error)
     {
+        IsSignedIn = Initlizer.HasProfile(_profileDir); // the run may have signed in
         IsRunning = false;
         IsStopping = false;
         _clock.Stop();
@@ -502,6 +506,45 @@ public partial class MainViewModel : ObservableObject
         long freed = LocalFiles.DeleteFinished(_state);
         SetStatus($"Freed {Format.Bytes(freed)} on this PC.");
         RefreshItems();
+    }
+
+    private readonly string _profileDir;
+
+    /// <summary>The app's browser profile exists (someone signed in, or at least started a run).</summary>
+    [ObservableProperty]
+    [NotifyCanExecuteChangedFor(nameof(SignOutCommand))]
+    private bool _isSignedIn;
+
+    private bool CanSignOut() => IsIdle && IsSignedIn;
+
+    /// <summary>
+    /// Signs the app out of Google after asking: deletes its own browser profile. Progress, settings and files
+    /// stay; the next Start asks to sign in again (maybe with another account).
+    /// </summary>
+    [RelayCommand(CanExecute = nameof(CanSignOut))]
+    private async Task SignOut()
+    {
+        bool ok = await _dialogs.AskYesNo("Sign out of Google?",
+            "The app forgets your Google sign-in: its own Chrome profile (sign-in, cookies, history) is deleted. " +
+            "Your normal Chrome is not affected. Progress, settings and the files on this PC stay. " +
+            "The next Start asks you to sign in again." + Environment.NewLine + Environment.NewLine +
+            "If you then sign in with a different account, items already in progress belong to the old one: finish them first.",
+            "Sign out", "Cancel");
+        if (ok == false)
+        {
+            return;
+        }
+
+        string? error = Initlizer.SignOut(_profileDir);
+        IsSignedIn = Initlizer.HasProfile(_profileDir);
+        if (error == null)
+        {
+            SetStatus("Signed out of Google. Press Start to sign in again.");
+        }
+        else
+        {
+            SetStatus(error, error: true);
+        }
     }
 
     [RelayCommand]

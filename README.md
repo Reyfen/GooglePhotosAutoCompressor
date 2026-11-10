@@ -30,7 +30,7 @@ Videos need **ffmpeg**: the Windows exe includes it, the `.deb` installs it, and
 
 ## Using the app
 
-- **Run:** press **Start**. The first time, sign in to Google in the Chrome window that opens; you stay signed in. Six steps show where it is; the cards show the space saved and how many items are done, in progress, waiting or left alone. The activity log shows every action.
+- **Run:** press **Start**. The first time, sign in to Google in the Chrome window that opens; you stay signed in. **Sign out** (next to Start) makes the app forget that sign-in. Six steps show where it is; the cards show the space saved and how many items are done, in progress, waiting or left alone. The activity log shows every action.
 - **Items:** every item found, with its size, the size of its copy and its status. Filter and search; give failed items new attempts; delete local files of finished items.
 - **Settings** (saved straight away):
   - what to compress (videos, photos, size thresholds);

@@ -62,6 +62,35 @@ namespace GooglePhotosAutoCompressor.Modules
             return Path.Combine(Settings.CONFIG_DIR, "chrome-profile");
         }
 
+        /// <summary>True when the app's browser profile exists, i.e. someone may be signed in.</summary>
+        internal static bool HasProfile(string profileDir) =>
+            Directory.Exists(profileDir) && Directory.EnumerateFileSystemEntries(profileDir).Any();
+
+        /// <summary>
+        /// Signs the app out of Google by deleting its own browser profile (sign-in, cookies, history). The
+        /// user's normal Chrome is a different profile and is not touched; progress and files are not either.
+        /// Chrome must not be running with this profile (no run going). Returns null when done, else why not.
+        /// </summary>
+        internal static string? SignOut(string profileDir)
+        {
+            if (Directory.Exists(profileDir) == false)
+            {
+                return null;
+            }
+
+            try
+            {
+                Directory.Delete(profileDir, recursive: true);
+                Console.WriteLine($"Signed out: deleted the browser profile {profileDir}");
+                return null;
+            }
+            catch (Exception e) when (e is IOException or UnauthorizedAccessException)
+            {
+                // Usually a Chrome window of this profile is still open.
+                return $"Could not delete {profileDir}: {e.Message} Close any Chrome window the app opened and try again.";
+            }
+        }
+
         private static void EnsureChromiumInstalled()
         {
             int exitCode = Microsoft.Playwright.Program.Main(new[] { "install", "chromium" });

@@ -14,7 +14,7 @@
     <!-- Header -->
     <Border DockPanel.Dock="Top" Padding="20,14" Background="{DynamicResource CardBrush}"
             BorderBrush="{DynamicResource CardBorderBrush}" BorderThickness="0,0,0,1">
-      <Grid ColumnDefinitions="Auto,*,Auto">
+      <Grid ColumnDefinitions="Auto,*,Auto,Auto">
         <Image Source="avares://GooglePhotosAutoCompressor/Assets/icon.png" Width="40" Height="40" />
         <StackPanel Grid.Column="1" Margin="12,0" VerticalAlignment="Center">
           <TextBlock FontSize="18" FontWeight="SemiBold">
@@ -24,7 +24,11 @@
           <TextBlock Classes="muted" FontSize="12"
                      Text="Replaces your biggest videos and photos in Google Photos with smaller copies." />
         </StackPanel>
-        <Button Grid.Column="2" Classes="big" Classes.primary="{Binding IsIdle}" Classes.danger="{Binding IsRunning}"
+        <!-- Asks first; off during a run (Chrome uses the profile) and when nobody signed in yet. -->
+        <Button Grid.Column="2" Content="Sign out" Command="{Binding SignOutCommand}" Margin="0,0,10,0"
+                VerticalAlignment="Center" IsVisible="{Binding IsSignedIn}"
+                ToolTip.Tip="Forget the Google sign-in of this app (asks first)" />
+        <Button Grid.Column="3" Classes="big" Classes.primary="{Binding IsIdle}" Classes.danger="{Binding IsRunning}"
                 Content="{Binding StartStopText}" Command="{Binding StartStopCommand}"
                 IsEnabled="{Binding !IsStopping}" MinWidth="130" HorizontalContentAlignment="Center"
                 ToolTip.Tip="Start a run, or stop at the next safe point" />
