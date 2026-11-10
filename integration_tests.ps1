@@ -43,6 +43,10 @@ if (-not $env:GPAC_TEST_CLAUDE_PATH -and -not (Get-Command claude -ErrorAction S
 if ($SignIn -and $Headless) {
     Fail "-SignIn needs a visible window: leave out -Headless."
 }
+# A new profile folder (e.g. for testing another account) is created; sign in to it with -SignIn.
+if ($ProfileDir -and -not (Test-Path $ProfileDir)) {
+    New-Item -ItemType Directory -Force $ProfileDir | Out-Null
+}
 
 $settings = @{
     GPAC_TEST_LIVE            = "1"

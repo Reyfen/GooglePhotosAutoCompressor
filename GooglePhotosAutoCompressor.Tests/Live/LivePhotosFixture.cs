@@ -107,7 +107,8 @@ namespace GooglePhotosAutoCompressor.Tests.Live
         private static string? FindProfileDir()
         {
             if (Environment.GetEnvironmentVariable("GPAC_TEST_PROFILE_DIR") is { Length: > 0 } custom)
-                return IsProfile(custom) ? custom : null;
+                // With -SignIn a new, empty profile folder is fine: the sign-in fills it.
+                return IsProfile(custom) || (Environment.GetEnvironmentVariable("GPAC_TEST_SIGN_IN") == "1" && Directory.Exists(custom)) ? custom : null;
 
             for (DirectoryInfo? dir = new(AppContext.BaseDirectory); dir != null; dir = dir.Parent)
             {
