@@ -21,9 +21,9 @@ Get the latest version from the [Releases page](https://github.com/Reyfen/Google
 
 | System | File | How to start |
 |--------|------|--------------|
-| Windows 10/11 | `GooglePhotosAutoCompressor-v1.0.1-win-x64.exe` | Double-click. Nothing to install. |
-| Any Linux | `GooglePhotosAutoCompressor-v1.0.1-x86_64.AppImage.tar.gz` | Unpack, then double-click the `.AppImage`. |
-| Ubuntu, Debian, Mint | `google-photos-auto-compressor_v1.0.1_amd64.deb` | Double-click to install, or `sudo apt install ./google-photos-auto-compressor_*.deb`. |
+| Windows 10/11 | `GooglePhotosAutoCompressor-v1.0.2-win-x64.exe` | Double-click. Nothing to install. |
+| Any Linux | `GooglePhotosAutoCompressor-v1.0.2-x86_64.AppImage.tar.gz` | Unpack, then double-click the `.AppImage`. |
+| Ubuntu, Debian, Mint | `google-photos-auto-compressor_v1.0.2_amd64.deb` | Double-click to install, or `sudo apt install ./google-photos-auto-compressor_*.deb`. |
 
 You also need **Google Chrome**. Without it the app installs Chromium, but Google sign-in may refuse it.
 Videos need **ffmpeg**: the Windows exe includes it, the `.deb` installs it, and the AppImage offers to download it.

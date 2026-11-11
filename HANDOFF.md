@@ -5,9 +5,10 @@ Last updated: 2026-10-29, branch `fix/robustness` (`dev` was fast-forwarded to 1
 ## Releases
 - v1.0.0 (2026-11-05): first release, from dev at 1ad2b88.
 - v1.0.1 (2026-11-10): Sign out (keeps accounts) and "Delete all login data". Released from dev by tagging; the Packages workflow builds, tests and publishes the files.
+- v1.0.2 (2026-11-11): per-account progress, motion photos keep their video (setting), English pages for non-English accounts, safer bin/download/storage/sign-in handling. Rows 23–47.
 
 ## Status
-Robustness pass finished: one commit per fix (`git log dev..fix/robustness`).
+Robustness pass finished: one commit per fix on dev (the `fix/robustness` branch was merged and deleted 2026-11-11).
 
 | # | Fix | Where |
 |---|-----|-------|
